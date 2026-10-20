@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Meridian National Bank — Knowledge Catalog Agent Demo (Live)</title>
+  <title>Northwind Retail Group — Knowledge Catalog Agent Demo (Live)</title>
   <link rel="stylesheet" href="/styles.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -11,14 +11,14 @@
 
   <div id="loginScreen" class="login-screen hidden">
     <div class="login-card">
-      <div class="login-logo">Meridian <span>National Bank</span></div>
+      <div class="login-logo">Northwind <span>Retail Group</span></div>
       <p class="login-subtitle">Knowledge Catalog Agent Demo</p>
       <div id="gsiButtonContainer"></div>
     </div>
   </div>
 
   <header class="app-header">
-    <div class="logo">Meridian <span>National Bank</span></div>
+    <div class="logo">Northwind <span>Retail Group</span></div>
     <div class="agent-tabs">
       <button class="agent-tab active" data-agent="basic" onclick="switchAgent('basic')">Basic Agent</button>
       <button class="agent-tab" data-agent="scaled" onclick="switchAgent('scaled')">Scaled Agent</button>
@@ -87,41 +87,41 @@
     const NARRATIVES = {
       executive: {
         label: 'Executive Briefing',
-        desc: 'A bank executive walks through increasingly complex questions.',
+        desc: 'A retailer executive walks through increasingly complex questions.',
         steps: [
-          { cat: 'Baseline', q: 'What are our top 5 customers by total relationship value?' },
-          { cat: 'Cross-Domain', q: 'Which branches have the highest combined retail and wealth management revenue?' },
-          { cat: 'Risk Overview', q: 'Give me an overview of customer risk across the bank.' },
-          { cat: 'Stress Test', q: 'If commercial real estate defaults increased 5%, what would happen to our capital ratios?' },
+          { cat: 'Foundational', q: 'What are our top 5 customers by total relationship value?' },
+          { cat: 'Cross-Domain', q: 'Which stores have the highest combined in-store POS and e-commerce loyalty revenue?' },
+          { cat: 'Risk Overview', q: 'Give me an overview of customer risk across the retailer.' },
+          { cat: 'Stress Test', q: 'If seasonal apparel markdowns increased 5%, what would happen to our working capital and gross margin?' },
         ],
       },
       compliance: {
         label: 'Risk & Compliance',
         desc: 'A compliance officer drills into risk and regulatory data.',
         steps: [
-          { cat: 'Portfolio', q: 'Give me a breakdown of our loan portfolio by product type and risk rating.' },
+          { cat: 'Assortment', q: 'Give me a breakdown of our bnpl_plan assortment by product type and risk rating.' },
           { cat: 'Delinquency', q: 'Are delinquencies trending up or down? Should we be concerned?' },
-          { cat: 'Basel III', q: 'Are we meeting our Basel III capital requirements? What\'s our buffer above the minimum?' },
-          { cat: 'Filing', q: 'Are we ready for our next regulatory filing? Summarize our key metrics across the call report schedules.' },
+          { cat: 'PCI-DSS III', q: 'Are we meeting our working capital adequacy requirements, and what is our PCI-DSS compliance posture?' },
+          { cat: 'Filing', q: 'Are we ready for our next compliance audit? Summarize our key metrics across PCI-DSS and CCPA/CPRA schedules.' },
         ],
       },
       governance: {
         label: 'Data Governance',
         desc: 'A data steward investigates data quality and lineage.',
         steps: [
-          { cat: 'FICO Trust', q: 'What\'s the average FICO score across our loan portfolio, and should we trust this number?' },
-          { cat: 'CUSIP Quality', q: 'We\'re seeing issues with our securities data. Can you check the quality of CUSIP identifiers?' },
+          { cat: 'Return-Risk Trust', q: 'What\'s the average Return-Risk score across our bnpl_plan assortment, and should we trust this number?' },
+          { cat: 'GTIN Quality', q: 'We\'re seeing issues with our product_skus data. Can you check the quality of GTIN identifiers?' },
           { cat: 'Lineage', q: 'Where does our customer data originate and how does it flow through the system?' },
-          { cat: 'AML', q: 'I need to investigate AML risk. Show me high-risk customers with their KYC status and any recent wire transfer activity.' },
+          { cat: 'Promo-Fraud', q: 'I need to investigate promo and return fraud risk. Show me high-risk customers with their consent verification status and recent high-value refund activity.' },
         ],
       },
       multicloud: {
         label: 'Multi-Cloud',
         desc: 'Cross-platform queries spanning BigQuery and Snowflake.',
         steps: [
-          { cat: 'Benchmarks', q: 'How do our portfolios compare to their benchmark indices this year? Use the external benchmark returns data.' },
-          { cat: 'Yield Curve', q: 'Show me the current SOFR and Treasury yield curve alongside our net interest margin.' },
-          { cat: 'Credit Spreads', q: 'What\'s our credit spread exposure by sector? Show current market spreads alongside our portfolio risk.' },
+          { cat: 'Benchmarks', q: 'How do our assortments compare to their benchmark indices this year? Use the external benchmark returns data.' },
+          { cat: 'Yield Curve', q: 'Show me current competitor markdown rates alongside our gross margin performance.' },
+          { cat: 'Credit Spreads', q: 'What\'s our markdown Value-at-Risk exposure by category? Show competitor pricing alongside our assortment risk.' },
           { cat: 'FX Rates', q: 'Compare our internal FX rates with the NEXUS spot rates. Are there any significant discrepancies?' },
         ],
       },

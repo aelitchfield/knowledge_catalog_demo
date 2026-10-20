@@ -14,7 +14,7 @@
 # limitations under the License.
 
 ####################################################################################
-# FSI Knowledge Catalog Demo — Deploy Agents to Vertex AI Agent Engine
+# [Retail] Northwind Retail Knowledge Catalog Demo — Deploy Agents to Vertex AI Agent Engine
 #
 # Prerequisites:
 #   1. pip install google-adk google-cloud-aiplatform google-cloud-bigquery
@@ -34,10 +34,10 @@ PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT before running this
 REGION="${GOOGLE_CLOUD_LOCATION:-us-central1}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Grant baseline IAM to all agent identities in the project via principalSet.
+# Grant foundational IAM to all agent identities in the project via principalSet.
 # Individual dataset-level grants are applied after each agent deploys.
 grant_agent_identity_permissions() {
-    echo "=== Granting baseline IAM to agent identities ==="
+    echo "=== Granting foundational IAM to agent identities ==="
     PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)' 2>/dev/null) || true
     if [ -z "${PROJECT_NUMBER}" ]; then
         echo "  Skipping (cannot resolve project number)"
@@ -57,7 +57,7 @@ grant_agent_identity_permissions() {
             --member="${PRINCIPAL_SET}" --role="${role}" --quiet 2>/dev/null || true
         echo "  Granted ${role} to all agents"
     done
-    echo "Agent identity baseline permissions configured."
+    echo "Agent identity foundational permissions configured."
 }
 
 # Grant dataset-level BQ access to a specific agent identity.
@@ -93,25 +93,25 @@ else:
 " 2>/dev/null || echo "  Warning: could not grant access on ${ds}"
     done
 
-    # Grant WRITER on agent_analytics for BQ Agent Analytics plugin
+    # Grant WRITER on retail_agent_analytics for BQ Agent Analytics plugin
     python3 -c "
 from google.cloud import bigquery
 client = bigquery.Client(project='${PROJECT_ID}')
-dataset = client.get_dataset('agent_analytics')
+dataset = client.get_dataset('retail_agent_analytics')
 entry = bigquery.AccessEntry('WRITER', 'iamMember', '${PRINCIPAL}')
 entries = list(dataset.access_entries)
 if entry not in entries:
     entries.append(entry)
     dataset.access_entries = entries
     client.update_dataset(dataset, ['access_entries'])
-    print('  Granted WRITER on agent_analytics')
+    print('  Granted WRITER on retail_agent_analytics')
 else:
-    print('  Already has access to agent_analytics')
-" 2>/dev/null || echo "  Warning: could not grant access on agent_analytics"
+    print('  Already has access to retail_agent_analytics')
+" 2>/dev/null || echo "  Warning: could not grant access on retail_agent_analytics"
 }
 
-NOKC_DATASETS="fsi_bronze_nokc fsi_silver_nokc fsi_gold_nokc fsi_reference_nokc fsi_dashboards_nokc fsi_staging_nokc fsi_snapshots_nokc fsi_audit_nokc"
-ENRICHED_DATASETS="fsi_bronze fsi_silver fsi_gold fsi_reference fsi_dashboards fsi_staging fsi_snapshots fsi_audit fsi_scan_results"
+NOKC_DATASETS="retail_bronze_nokc retail_silver_nokc retail_gold_nokc retail_reference_nokc retail_dashboards_nokc retail_staging_nokc retail_snapshots_nokc retail_audit_nokc"
+ENRICHED_DATASETS="retail_bronze retail_silver retail_gold retail_reference retail_dashboards retail_staging retail_snapshots retail_audit retail_scan_results"
 
 # Grant required IAM permissions to the Agent Engine service account
 grant_agent_engine_permissions() {
@@ -142,7 +142,7 @@ create_env_files() {
 GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
 GOOGLE_CLOUD_LOCATION=${REGION}
 GOOGLE_GENAI_USE_VERTEXAI=True
-BQ_ANALYTICS_DATASET=agent_analytics
+BQ_ANALYTICS_DATASET=retail_agent_analytics
 EOF
     done
     # All agents: opt out of Context-Aware Access mTLS binding so Agent
@@ -183,7 +183,7 @@ read_agent_id() {
 }
 
 deploy_basic() {
-    echo "=== Deploying FSI Basic Agent ==="
+    echo "=== Deploying Retail Basic Agent ==="
     local existing_id update_flag output
     existing_id=$(read_agent_id "basic-agent-id")
     update_flag=""
@@ -194,7 +194,7 @@ deploy_basic() {
     output=$(adk deploy agent_engine \
         --project="${PROJECT_ID}" \
         --region="${REGION}" \
-        --display_name="FSI Basic Agent" \
+        --display_name="Retail Basic Agent" \
         ${update_flag} \
         "${SCRIPT_DIR}/agent_basic" 2>&1)
     echo "$output"
@@ -206,7 +206,7 @@ deploy_basic() {
 }
 
 deploy_scaled() {
-    echo "=== Deploying FSI Scaled Agent ==="
+    echo "=== Deploying Retail Scaled Agent ==="
     local existing_id update_flag output
     existing_id=$(read_agent_id "scaled-agent-id")
     update_flag=""
@@ -217,7 +217,7 @@ deploy_scaled() {
     output=$(adk deploy agent_engine \
         --project="${PROJECT_ID}" \
         --region="${REGION}" \
-        --display_name="FSI Scaled Agent" \
+        --display_name="Retail Scaled Agent" \
         ${update_flag} \
         "${SCRIPT_DIR}/agent_scaled" 2>&1)
     echo "$output"
@@ -229,7 +229,7 @@ deploy_scaled() {
 }
 
 deploy_kc() {
-    echo "=== Deploying FSI KC Agent ==="
+    echo "=== Deploying Retail KC Agent ==="
     local existing_id update_flag output
     existing_id=$(read_agent_id "kc-agent-id")
     update_flag=""
@@ -240,7 +240,7 @@ deploy_kc() {
     output=$(adk deploy agent_engine \
         --project="${PROJECT_ID}" \
         --region="${REGION}" \
-        --display_name="FSI KC Agent" \
+        --display_name="Retail KC Agent" \
         ${update_flag} \
         "${SCRIPT_DIR}/agent_kc" 2>&1)
     echo "$output"

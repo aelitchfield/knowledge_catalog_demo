@@ -1,4 +1,4 @@
-// Point Cloud Visualization Engine for FSI Knowledge Catalog Demo
+// Point Cloud Visualization Engine for [Retail] Northwind Retail Knowledge Catalog Demo
 
 const COLORS = {
   basic: '#4285F4', scaled: '#EA4335', kc: '#34A853',

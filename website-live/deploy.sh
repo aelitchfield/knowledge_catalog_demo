@@ -1,10 +1,13 @@
 #!/bin/bash
 set -e
 
+export GOOGLE_API_USE_CLIENT_CERTIFICATE=false
+export CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false
+
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT}"
 PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')
 REGION="${GOOGLE_CLOUD_LOCATION:-us-central1}"
-SERVICE_NAME="fsi-kc-demo-ui-live"
+SERVICE_NAME="retail-kc-demo-ui-live"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 BASIC_AGENT_ID="${BASIC_AGENT_ID:?Set BASIC_AGENT_ID}"
@@ -22,7 +25,7 @@ if [ -z "${OAUTH_CLIENT_ID}" ]; then
     exit 1
 fi
 
-echo "=== Deploying FSI KC Demo Website (Live Mode) to Cloud Run ==="
+echo "=== Deploying Retail KC Demo Website (Live Mode) to Cloud Run ==="
 echo "  Project: ${PROJECT_ID}"
 echo "  Agents: basic=${BASIC_AGENT_ID} scaled=${SCALED_AGENT_ID} kc=${KC_AGENT_ID}"
 echo "  OAuth: enabled"

@@ -2,7 +2,7 @@
 """Creates NEXUS market data database, tables, synthetic data, and Horizon tags in Snowflake.
 
 Requires SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER, SNOWFLAKE_PASSWORD env vars.
-The user must have FSI_KC_SETUP_ROLE (CREATE DATABASE, CREATE WAREHOUSE, APPLY TAG).
+The user must have RETAIL_KC_SETUP_ROLE (CREATE DATABASE, CREATE WAREHOUSE, APPLY TAG).
 
 Usage: python3 snowflake/00_setup_nexus_data.py
 """
@@ -12,8 +12,8 @@ import random
 
 from common_snowflake import (
     DATABASE, WAREHOUSE, SCHEMAS, TABLES, HORIZON_TAGS, TAG_ASSIGNMENTS,
-    generate_cusip, generate_isin, us_business_days, get_snowflake_connection,
-    CUSIP_SEED_RANGE,
+    generate_gtin13, generate_sku, us_business_days, get_snowflake_connection,
+    GTIN_SEED_RANGE,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,10 +63,10 @@ def create_tables(cur):
     logger.info("Creating tables...")
 
     cur.execute(f"""
-    CREATE TABLE IF NOT EXISTS {DATABASE}.SECURITIES.SECURITY_PRICES (
+    CREATE TABLE IF NOT EXISTS {DATABASE}.PRODUCT_SKUS.SECURITY_PRICES (
         price_date       DATE NOT NULL,
-        cusip            VARCHAR(9) NOT NULL,
-        isin             VARCHAR(12),
+        gtin_13            VARCHAR(9) NOT NULL,
+        sku_code             VARCHAR(12),
         ticker           VARCHAR(10),
         security_name    VARCHAR(100),
         close_price      DECIMAL(18,4),
@@ -80,12 +80,12 @@ def create_tables(cur):
         as_of_timestamp  TIMESTAMP_TZ
     )
     """)
-    cur.execute(f"COMMENT ON TABLE {DATABASE}.SECURITIES.SECURITY_PRICES IS 'Daily closing prices by CUSIP/ISIN from NEXUS market data feed. Join to BigQuery silver_holdings on CUSIP for portfolio valuation.'")
+    cur.execute(f"COMMENT ON TABLE {DATABASE}.PRODUCT_SKUS.SECURITY_PRICES IS 'Daily closing prices by GTIN/SKU from NEXUS market data feed. Join to BigQuery silver_inventory_positions on GTIN for assortment valuation.'")
 
     cur.execute(f"""
-    CREATE TABLE IF NOT EXISTS {DATABASE}.SECURITIES.SECURITY_FUNDAMENTALS (
+    CREATE TABLE IF NOT EXISTS {DATABASE}.PRODUCT_SKUS.SECURITY_FUNDAMENTALS (
         as_of_date       DATE NOT NULL,
-        cusip            VARCHAR(9) NOT NULL,
+        gtin_13            VARCHAR(9) NOT NULL,
         pe_ratio         DECIMAL(10,2),
         eps              DECIMAL(10,4),
         market_cap_mm    DECIMAL(18,2),
@@ -96,12 +96,12 @@ def create_tables(cur):
         sp_rating        VARCHAR(5)
     )
     """)
-    cur.execute(f"COMMENT ON TABLE {DATABASE}.SECURITIES.SECURITY_FUNDAMENTALS IS 'Fundamental metrics per security: P/E, EPS, market cap, dividend yield, beta.'")
+    cur.execute(f"COMMENT ON TABLE {DATABASE}.PRODUCT_SKUS.SECURITY_FUNDAMENTALS IS 'Fundamental metrics per security: P/E, EPS, market cap, dividend yield, beta.'")
 
     cur.execute(f"""
-    CREATE TABLE IF NOT EXISTS {DATABASE}.SECURITIES.CORPORATE_ACTIONS (
+    CREATE TABLE IF NOT EXISTS {DATABASE}.PRODUCT_SKUS.CORPORATE_ACTIONS (
         action_date      DATE NOT NULL,
-        cusip            VARCHAR(9) NOT NULL,
+        gtin_13            VARCHAR(9) NOT NULL,
         action_type      VARCHAR(20),
         description      VARCHAR(200),
         ratio            DECIMAL(10,4),
@@ -109,7 +109,7 @@ def create_tables(cur):
         currency         VARCHAR(3) DEFAULT 'USD'
     )
     """)
-    cur.execute(f"COMMENT ON TABLE {DATABASE}.SECURITIES.CORPORATE_ACTIONS IS 'Corporate actions: stock splits, dividend declarations, mergers and acquisitions.'")
+    cur.execute(f"COMMENT ON TABLE {DATABASE}.PRODUCT_SKUS.CORPORATE_ACTIONS IS 'Corporate actions: stock splits, dividend declarations, mergers and acquisitions.'")
 
     cur.execute(f"""
     CREATE TABLE IF NOT EXISTS {DATABASE}.INDICES.BENCHMARK_RETURNS (
@@ -122,18 +122,18 @@ def create_tables(cur):
         trailing_1y      DECIMAL(10,6)
     )
     """)
-    cur.execute(f"COMMENT ON TABLE {DATABASE}.INDICES.BENCHMARK_RETURNS IS 'Daily and period returns for major benchmark indices. Join to BigQuery gold_portfolio_performance on benchmark name.'")
+    cur.execute(f"COMMENT ON TABLE {DATABASE}.INDICES.BENCHMARK_RETURNS IS 'Daily and period returns for major benchmark indices. Join to BigQuery gold_assortment_performance on benchmark name.'")
 
     cur.execute(f"""
     CREATE TABLE IF NOT EXISTS {DATABASE}.INDICES.INDEX_CONSTITUENTS (
         as_of_date       DATE NOT NULL,
         benchmark_name   VARCHAR(50) NOT NULL,
-        cusip            VARCHAR(9) NOT NULL,
+        gtin_13            VARCHAR(9) NOT NULL,
         weight_pct       DECIMAL(8,4),
         sector           VARCHAR(50)
     )
     """)
-    cur.execute(f"COMMENT ON TABLE {DATABASE}.INDICES.INDEX_CONSTITUENTS IS 'Constituent securities and weights for each benchmark index.'")
+    cur.execute(f"COMMENT ON TABLE {DATABASE}.INDICES.INDEX_CONSTITUENTS IS 'Constituent product_skus and weights for each benchmark index.'")
 
     cur.execute(f"""
     CREATE TABLE IF NOT EXISTS {DATABASE}.ECONOMICS.INTEREST_RATE_CURVES (
@@ -145,7 +145,7 @@ def create_tables(cur):
         as_of_timestamp  TIMESTAMP_TZ
     )
     """)
-    cur.execute(f"COMMENT ON TABLE {DATABASE}.ECONOMICS.INTEREST_RATE_CURVES IS 'SOFR, Fed Funds Effective, and Treasury yields (2Y/5Y/10Y/30Y). Join to BigQuery gold_net_interest_margin on date for NIM sensitivity analysis.'")
+    cur.execute(f"COMMENT ON TABLE {DATABASE}.ECONOMICS.INTEREST_RATE_CURVES IS 'SOFR, Fed Funds Effective, and Treasury yields (2Y/5Y/10Y/30Y). Join to BigQuery gold_gross_margin_analysis on date for NIM sensitivity analysis.'")
 
     cur.execute(f"""
     CREATE TABLE IF NOT EXISTS {DATABASE}.ECONOMICS.ECONOMIC_INDICATORS (
@@ -182,12 +182,12 @@ def create_tables(cur):
         change_1m_bps    DECIMAL(8,2)
     )
     """)
-    cur.execute(f"COMMENT ON TABLE {DATABASE}.RISK_ANALYTICS.CREDIT_SPREADS IS 'Corporate bond spreads by credit rating and sector. Join to BigQuery gold_market_risk_var for credit spread exposure analysis.'")
+    cur.execute(f"COMMENT ON TABLE {DATABASE}.RISK_ANALYTICS.CREDIT_SPREADS IS 'Corporate bond spreads by credit rating and sector. Join to BigQuery gold_markdown_risk_var for credit spread exposure analysis.'")
 
     cur.execute(f"""
     CREATE TABLE IF NOT EXISTS {DATABASE}.RISK_ANALYTICS.VOLATILITY_SURFACES (
         as_of_date       DATE NOT NULL,
-        underlying_cusip VARCHAR(9),
+        parent_gtin_13 VARCHAR(9),
         expiry_days      INT,
         strike_pct       DECIMAL(8,2),
         implied_vol      DECIMAL(8,4),
@@ -197,9 +197,9 @@ def create_tables(cur):
     cur.execute(f"COMMENT ON TABLE {DATABASE}.RISK_ANALYTICS.VOLATILITY_SURFACES IS 'Implied volatility surfaces for options pricing across maturities and strikes.'")
 
     # Add column comments for key join columns
-    cur.execute(f"COMMENT ON COLUMN {DATABASE}.SECURITIES.SECURITY_PRICES.CUSIP IS 'CUSIP identifier — matches BigQuery ref_cusip_master.cusip and silver_holdings.cusip'")
-    cur.execute(f"COMMENT ON COLUMN {DATABASE}.SECURITIES.SECURITY_PRICES.ISIN IS 'ISIN identifier — matches BigQuery ref_isin_mapping.isin'")
-    cur.execute(f"COMMENT ON COLUMN {DATABASE}.INDICES.BENCHMARK_RETURNS.BENCHMARK_NAME IS 'Benchmark name — matches BigQuery gold_portfolio_performance.benchmark_name'")
+    cur.execute(f"COMMENT ON COLUMN {DATABASE}.PRODUCT_SKUS.SECURITY_PRICES.GTIN IS 'GTIN identifier — matches BigQuery ref_gtin_master.gtin_13 and silver_inventory_positions.gtin_13'")
+    cur.execute(f"COMMENT ON COLUMN {DATABASE}.PRODUCT_SKUS.SECURITY_PRICES.SKU IS 'SKU identifier — matches BigQuery ref_sku_gtin_mapping.sku_code'")
+    cur.execute(f"COMMENT ON COLUMN {DATABASE}.INDICES.BENCHMARK_RETURNS.BENCHMARK_NAME IS 'Benchmark name — matches BigQuery gold_assortment_performance.benchmark_name'")
     cur.execute(f"COMMENT ON COLUMN {DATABASE}.ECONOMICS.INTEREST_RATE_CURVES.INSTRUMENT IS 'Rate instrument code: SOFR, FED_FUNDS, UST_2Y, UST_5Y, UST_10Y, UST_30Y'")
 
 
@@ -208,12 +208,12 @@ def populate_data(cur):
     rng = random.Random(42)
     biz_days = us_business_days("2024-01-02", 250)  # ~12 months of business days, overlaps BQ data ranges
 
-    # SECURITY_PRICES: 500 CUSIPs x 120 days = 60,000 rows (batched)
+    # SECURITY_PRICES: 500 GTINs x 120 days = 60,000 rows (batched)
     logger.info("  SECURITY_PRICES...")
-    cusips = [(n, generate_cusip(n), generate_isin(n)) for n in CUSIP_SEED_RANGE]
+    gtins = [(n, generate_gtin13(n), generate_sku(n)) for n in GTIN_SEED_RANGE]
     batch = []
     for day in biz_days:
-        for n, cusip, isin in cusips:
+        for n, gtin_13, sku_code in gtins:
             base = 20 + (n % 300)
             close = round(base + rng.gauss(0, base * 0.02), 4)
             open_p = round(close * (1 + rng.gauss(0, 0.005)), 4)
@@ -224,18 +224,18 @@ def populate_data(cur):
             exch = ["NYSE", "NASDAQ", "OTC"][n % 3]
             ticker = f"TK{n:04d}"
             name = f"Security-{n}"
-            batch.append(f"('{day}','{cusip}','{isin}','{ticker}','{name}',{close},{open_p},{high_p},{low_p},{vol},{mcap},'USD','{exch}','{day} 16:00:00 -0400')")
+            batch.append(f"('{day}','{gtin_13}','{sku_code}','{ticker}','{name}',{close},{open_p},{high_p},{low_p},{vol},{mcap},'USD','{exch}','{day} 16:00:00 -0400')")
             if len(batch) >= 5000:
-                cur.execute(f"INSERT INTO {DATABASE}.SECURITIES.SECURITY_PRICES VALUES {','.join(batch)}")
+                cur.execute(f"INSERT INTO {DATABASE}.PRODUCT_SKUS.SECURITY_PRICES VALUES {','.join(batch)}")
                 batch = []
     if batch:
-        cur.execute(f"INSERT INTO {DATABASE}.SECURITIES.SECURITY_PRICES VALUES {','.join(batch)}")
-    logger.info("    %d CUSIPs x %d days", len(cusips), len(biz_days))
+        cur.execute(f"INSERT INTO {DATABASE}.PRODUCT_SKUS.SECURITY_PRICES VALUES {','.join(batch)}")
+    logger.info("    %d GTINs x %d days", len(gtins), len(biz_days))
 
     # SECURITY_FUNDAMENTALS: 500 rows (latest)
     logger.info("  SECURITY_FUNDAMENTALS...")
     batch = []
-    for n, cusip, _ in cusips:
+    for n, gtin_13, _ in gtins:
         pe = round(rng.uniform(5, 50), 2)
         eps = round(rng.uniform(0.5, 20), 4)
         mcap = round(rng.uniform(100, 50000), 2)
@@ -243,22 +243,22 @@ def populate_data(cur):
         beta = round(rng.gauss(1.0, 0.3), 4)
         sector = SECTORS[n % len(SECTORS)]
         rating = ["AAA", "AA", "A", "BBB", "BB"][n % 5]
-        batch.append(f"('{biz_days[-1]}','{cusip}',{pe},{eps},{mcap},{div_yield},{beta},'{sector}','Industry-{n % 20}','{rating}')")
-    cur.execute(f"INSERT INTO {DATABASE}.SECURITIES.SECURITY_FUNDAMENTALS VALUES {','.join(batch)}")
+        batch.append(f"('{biz_days[-1]}','{gtin_13}',{pe},{eps},{mcap},{div_yield},{beta},'{sector}','Industry-{n % 20}','{rating}')")
+    cur.execute(f"INSERT INTO {DATABASE}.PRODUCT_SKUS.SECURITY_FUNDAMENTALS VALUES {','.join(batch)}")
 
     # CORPORATE_ACTIONS: ~200 events
     logger.info("  CORPORATE_ACTIONS...")
     batch = []
     for i in range(200):
         n = rng.choice(range(1, 501))
-        cusip = generate_cusip(n)
+        gtin_13 = generate_gtin13(n)
         day = rng.choice(biz_days)
         atype = rng.choice(["DIVIDEND", "DIVIDEND", "SPLIT", "MERGER"])
         desc = {"DIVIDEND": f"Quarterly dividend ${rng.uniform(0.1, 2.0):.2f}/share", "SPLIT": f"{rng.choice([2,3,4])}:1 stock split", "MERGER": "Merger announcement"}[atype]
         ratio = {"DIVIDEND": 1.0, "SPLIT": float(rng.choice([2, 3, 4])), "MERGER": round(rng.uniform(1.1, 1.5), 4)}[atype]
         amt = round(rng.uniform(0.1, 5.0), 4) if atype == "DIVIDEND" else 0
-        batch.append(f"('{day}','{cusip}','{atype}','{desc}',{ratio},{amt},'USD')")
-    cur.execute(f"INSERT INTO {DATABASE}.SECURITIES.CORPORATE_ACTIONS VALUES {','.join(batch)}")
+        batch.append(f"('{day}','{gtin_13}','{atype}','{desc}',{ratio},{amt},'USD')")
+    cur.execute(f"INSERT INTO {DATABASE}.PRODUCT_SKUS.CORPORATE_ACTIONS VALUES {','.join(batch)}")
 
     # BENCHMARK_RETURNS: 7 benchmarks x 120 days
     logger.info("  BENCHMARK_RETURNS...")
@@ -273,7 +273,7 @@ def populate_data(cur):
             batch.append(f"('{day}','{bm}',{daily},{mtd},{qtd},{ytd},{t1y})")
     cur.execute(f"INSERT INTO {DATABASE}.INDICES.BENCHMARK_RETURNS VALUES {','.join(batch)}")
 
-    # INDEX_CONSTITUENTS: latest date, 7 benchmarks x ~50 securities each
+    # INDEX_CONSTITUENTS: latest date, 7 benchmarks x ~50 product_skus each
     logger.info("  INDEX_CONSTITUENTS...")
     batch = []
     latest = biz_days[-1]
@@ -283,7 +283,7 @@ def populate_data(cur):
         for i, n in enumerate(members):
             w = round(rng.uniform(0.5, 5.0), 4)
             total_w += w
-            batch.append(f"('{latest}','{bm}','{generate_cusip(n)}',{w},'{SECTORS[n % len(SECTORS)]}')")
+            batch.append(f"('{latest}','{bm}','{generate_gtin13(n)}',{w},'{SECTORS[n % len(SECTORS)]}')")
     cur.execute(f"INSERT INTO {DATABASE}.INDICES.INDEX_CONSTITUENTS VALUES {','.join(batch)}")
 
     # INTEREST_RATE_CURVES: 6 instruments x 120 days
@@ -349,12 +349,12 @@ def populate_data(cur):
     expiries = [30, 60, 90, 180, 365]
     strikes = [0.90, 0.95, 1.00, 1.05, 1.10]
     for n in rng.sample(range(1, 501), 50):
-        cusip = generate_cusip(n)
+        gtin_13 = generate_gtin13(n)
         for exp in expiries:
             for strike in strikes:
                 iv = round(0.20 + rng.gauss(0, 0.05) + (abs(strike - 1.0) * 0.5), 4)
                 delta = round(rng.uniform(-1, 1) * (1 - abs(strike - 1.0)), 4)
-                batch.append(f"('{latest}','{cusip}',{exp},{strike},{iv},{delta})")
+                batch.append(f"('{latest}','{gtin_13}',{exp},{strike},{iv},{delta})")
     cur.execute(f"INSERT INTO {DATABASE}.RISK_ANALYTICS.VOLATILITY_SURFACES VALUES {','.join(batch)}")
 
 
@@ -364,7 +364,7 @@ def create_horizon_tags(cur):
 
     for tag_name, tag_def in HORIZON_TAGS.items():
         values = ", ".join(f"'{v}'" for v in tag_def["allowed_values"])
-        cur.execute(f"CREATE TAG IF NOT EXISTS {DATABASE}.SECURITIES.{tag_name} ALLOWED_VALUES {values}")
+        cur.execute(f"CREATE TAG IF NOT EXISTS {DATABASE}.PRODUCT_SKUS.{tag_name} ALLOWED_VALUES {values}")
         logger.info("  Tag: %s", tag_name)
 
     logger.info("Applying tags to tables...")
@@ -372,7 +372,7 @@ def create_horizon_tags(cur):
         for table_name, _ in TABLES[schema]:
             tags = TAG_ASSIGNMENTS.get(table_name, {})
             for tag_name, tag_value in tags.items():
-                cur.execute(f"ALTER TABLE {DATABASE}.{schema}.{table_name} SET TAG {DATABASE}.SECURITIES.{tag_name} = '{tag_value}'")
+                cur.execute(f"ALTER TABLE {DATABASE}.{schema}.{table_name} SET TAG {DATABASE}.PRODUCT_SKUS.{tag_name} = '{tag_value}'")
             logger.info("  %s.%s: %d tags", schema, table_name, len(tags))
 
 

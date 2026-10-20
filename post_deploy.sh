@@ -14,7 +14,7 @@
 # limitations under the License.
 
 ####################################################################################
-# FSI Knowledge Catalog Demo - Post Deploy
+# [Retail] Northwind Retail Knowledge Catalog Demo - Post Deploy
 # Runs all Python scripts that create Knowledge Catalog and governance resources.
 # Called after BigQuery tables are created (deploy-bq.sh or Terraform).
 ####################################################################################
@@ -53,7 +53,7 @@ run_step() {
     fi
 }
 
-echo "=== Post-Deploy: Creating FSI governance resources ==="
+echo "=== Post-Deploy: Creating Retail governance resources ==="
 
 run_step  1 "Creating Knowledge Catalog infrastructure" "python3 00_create_dataplex_infra.py"
 run_step  2 "Creating business glossary & links"    "python3 01_create_glossary.py"

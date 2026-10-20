@@ -8,6 +8,11 @@
 
 set -e
 
+# Disable gcloud mTLS client-cert helper (avoids Python 3.14 segfault in bq CLI)
+export GOOGLE_API_USE_CLIENT_CERTIFICATE=false
+export CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false
+export RETAIL_TAXONOMY_DISPLAY_NAME="${RETAIL_TAXONOMY_DISPLAY_NAME:-Retail Demo Sensitivity Taxonomy (alitch)}"
+
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT before running this script}"
 LOCATION="us"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -45,7 +50,7 @@ ${select_part}"
 
 if ! ${REFRESH_MODE}; then
     echo "=== Creating BigQuery Datasets ==="
-    for ds in fsi_bronze fsi_silver fsi_gold fsi_scan_results fsi_staging fsi_snapshots fsi_audit fsi_reference fsi_dashboards; do
+    for ds in retail_bronze retail_silver retail_gold retail_scan_results retail_staging retail_snapshots retail_audit retail_reference retail_dashboards; do
         bq --project_id="${PROJECT_ID}" mk --location="${LOCATION}" --dataset "${PROJECT_ID}:${ds}" 2>/dev/null || echo "  ${ds} already exists"
     done
 fi

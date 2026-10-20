@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FSI Knowledge Catalog Demo — Live WebSocket Web Application
+[Retail] Northwind Retail Knowledge Catalog Demo — Live WebSocket Web Application
 
 Streams agent responses in real-time via WebSocket, parsing Agent Engine
 streamQuery events to drive point cloud animations on the frontend.
@@ -49,56 +49,68 @@ _SESSION_TTL = 3600
 _sessions = {}
 _session_times = {}
 
-_FSI_DATASETS = {
-    'fsi_gold', 'fsi_silver', 'fsi_bronze',
-    'fsi_reference', 'fsi_supplementary', 'fsi_dashboards',
+_RETAIL_DATASETS = {
+    'retail_gold', 'retail_silver', 'retail_bronze',
+    'retail_reference', 'retail_supplementary', 'retail_dashboards',
 }
 _DATASET_TO_TIER = {
-    'fsi_gold': 'gold', 'fsi_silver': 'silver', 'fsi_bronze': 'bronze',
-    'fsi_reference': 'ref', 'fsi_supplementary': 'ref', 'fsi_dashboards': 'ref',
+    'retail_gold': 'gold', 'retail_silver': 'silver', 'retail_bronze': 'bronze',
+    'retail_reference': 'ref', 'retail_supplementary': 'ref', 'retail_dashboards': 'ref',
 }
 
 BASIC_TABLES = [
-    'gold_customer_360', 'gold_account_summary', 'gold_loan_portfolio_summary',
-    'gold_portfolio_performance', 'gold_balance_sheet_summary',
+    'gold_customer_360', 'gold_loyalty_account_summary', 'gold_bnpl_plan_summary',
+    'gold_assortment_performance', 'gold_financial_summary',
 ]
 
 GOLD_SOURCES = {
-    'gold_customer_360': ['silver_customers', 'silver_accounts', 'silver_loans', 'silver_credit_cards', 'silver_wm_clients'],
-    'gold_account_summary': ['silver_accounts', 'silver_transactions'],
-    'gold_transaction_patterns': ['silver_transactions'],
-    'gold_loan_portfolio_summary': ['silver_loans'],
-    'gold_delinquency_analysis': ['silver_loans'],
-    'gold_fraud_analytics': ['silver_fraud_alerts'],
-    'gold_aml_risk_scoring': ['silver_customers', 'silver_kyc_records', 'silver_compliance_cases', 'silver_wire_transfers'],
-    'gold_branch_performance': ['silver_branches', 'silver_accounts', 'silver_loans', 'silver_transactions'],
-    'gold_portfolio_performance': ['silver_portfolios', 'silver_performance', 'silver_holdings', 'silver_benchmarks'],
-    'gold_client_revenue': ['silver_wm_clients', 'silver_fee_schedules', 'silver_portfolios', 'silver_trades'],
-    'gold_asset_allocation': ['silver_holdings'],
-    'gold_advisor_scorecard': ['silver_advisors', 'silver_portfolios', 'silver_performance', 'silver_trades'],
-    'gold_fee_revenue': ['silver_fee_schedules', 'silver_wm_clients'],
-    'gold_net_interest_margin': ['silver_accounts', 'silver_loans'],
-    'gold_capital_adequacy': ['silver_regulatory_capital'],
-    'gold_liquidity_coverage': ['silver_accounts'],
-    'gold_market_risk_var': ['silver_holdings', 'silver_market_data'],
-    'gold_operational_risk': ['silver_audit_events'],
-    'gold_regulatory_dashboard': ['silver_regulatory_capital', 'silver_kyc_records', 'silver_regulatory_filings'],
-    'gold_balance_sheet_summary': ['silver_accounts', 'silver_loans', 'silver_holdings', 'silver_regulatory_capital'],
+    'gold_customer_360': ['silver_customers', 'silver_loyalty_accounts', 'silver_bnpl_plans', 'silver_store_cards', 'silver_vip_members'],
+    'gold_loyalty_account_summary': ['silver_loyalty_accounts', 'silver_pos_transactions'],
+    'gold_order_patterns': ['silver_pos_transactions'],
+    'gold_bnpl_plan_summary': ['silver_bnpl_plans'],
+    'gold_bnpl_delinquency_analysis': ['silver_bnpl_plans'],
+    'gold_return_fraud_analytics': ['silver_fraud_alerts'],
+    'gold_promo_fraud_scoring': ['silver_customers', 'silver_privacy_consents', 'silver_promo_abuse_cases', 'silver_high_value_refunds'],
+    'gold_store_performance': ['silver_stores', 'silver_loyalty_accounts', 'silver_bnpl_plans', 'silver_pos_transactions'],
+    'gold_assortment_performance': ['silver_merch_assortments', 'silver_assortment_performance', 'silver_inventory_positions', 'silver_category_benchmarks'],
+    'gold_vip_member_revenue': ['silver_vip_members', 'silver_promo_rules', 'silver_merch_assortments', 'silver_ecom_orders'],
+    'gold_inventory_allocation': ['silver_inventory_positions'],
+    'gold_category_manager_scorecard': ['silver_category_managers', 'silver_merch_assortments', 'silver_assortment_performance', 'silver_ecom_orders'],
+    'gold_promo_margin_impact': ['silver_promo_rules', 'silver_vip_members'],
+    'gold_gross_margin_analysis': ['silver_loyalty_accounts', 'silver_bnpl_plans'],
+    'gold_working_capital_adequacy': ['silver_working_capital'],
+    'gold_inventory_turnover_coverage': ['silver_loyalty_accounts'],
+    'gold_markdown_risk_var': ['silver_inventory_positions', 'silver_competitor_pricing'],
+    'gold_shrinkage_operational_risk': ['silver_audit_events'],
+    'gold_compliance_dashboard': ['silver_working_capital', 'silver_privacy_consents', 'silver_compliance_attestations'],
+    'gold_financial_summary': ['silver_loyalty_accounts', 'silver_bnpl_plans', 'silver_inventory_positions', 'silver_working_capital'],
 }
 
 GLOSSARY_LINKS = {
-    'FICO Score': ['gold_loan_portfolio_summary', 'silver_loans', 'bronze_loans', 'gold_delinquency_analysis'],
-    'AUM': ['gold_customer_360', 'gold_advisor_scorecard', 'gold_client_revenue', 'silver_wm_clients'],
-    'SAR': ['gold_fraud_analytics', 'gold_aml_risk_scoring', 'bronze_fraud_alerts', 'bronze_compliance_cases'],
-    'CET1 Ratio': ['gold_capital_adequacy', 'silver_regulatory_capital', 'bronze_regulatory_capital'],
-    'Customer ID': ['gold_customer_360', 'silver_customers', 'bronze_customers', 'gold_account_summary'],
-    'Delinquency': ['gold_loan_portfolio_summary', 'gold_delinquency_analysis', 'silver_loans'],
-    'KYC': ['gold_aml_risk_scoring', 'bronze_kyc_records', 'gold_customer_360'],
-    'VaR': ['gold_market_risk_var', 'silver_holdings', 'silver_market_data'],
-    'CUSIP': ['silver_securities', 'bronze_securities', 'gold_asset_allocation'],
-    'Branch': ['gold_branch_performance', 'gold_customer_360', 'bronze_branches', 'gold_net_interest_margin'],
-    'NIM': ['gold_net_interest_margin', 'silver_accounts', 'silver_loans'],
-    'Risk Rating': ['gold_loan_portfolio_summary', 'silver_loans', 'bronze_loans'],
+    '[Retail] Return-Risk Score': ['gold_bnpl_plan_summary', 'silver_bnpl_plans', 'bronze_bnpl_plans', 'gold_bnpl_delinquency_analysis'],
+    'Return-Risk Score': ['gold_bnpl_plan_summary', 'silver_bnpl_plans', 'bronze_bnpl_plans', 'gold_bnpl_delinquency_analysis'],
+    '[Retail] Customer Lifetime Value (CLV)': ['gold_customer_360', 'gold_category_manager_scorecard', 'gold_vip_member_revenue', 'silver_vip_members'],
+    'CLV': ['gold_customer_360', 'gold_category_manager_scorecard', 'gold_vip_member_revenue', 'silver_vip_members'],
+    '[Retail] Return Abuse Alert': ['gold_return_fraud_analytics', 'gold_promo_fraud_scoring', 'bronze_fraud_alerts', 'bronze_promo_abuse_cases'],
+    'Return Abuse Alert': ['gold_return_fraud_analytics', 'gold_promo_fraud_scoring', 'bronze_fraud_alerts', 'bronze_promo_abuse_cases'],
+    '[Retail] Working Capital Ratio': ['gold_working_capital_adequacy', 'silver_working_capital', 'bronze_working_capital'],
+    'Working Capital Ratio': ['gold_working_capital_adequacy', 'silver_working_capital', 'bronze_working_capital'],
+    '[Retail] Customer ID': ['gold_customer_360', 'silver_customers', 'bronze_customers', 'gold_loyalty_account_summary'],
+    'Customer ID': ['gold_customer_360', 'silver_customers', 'bronze_customers', 'gold_loyalty_account_summary'],
+    '[Retail] BNPL Delinquency Rate': ['gold_bnpl_plan_summary', 'gold_bnpl_delinquency_analysis', 'silver_bnpl_plans'],
+    'Delinquency': ['gold_bnpl_plan_summary', 'gold_bnpl_delinquency_analysis', 'silver_bnpl_plans'],
+    '[Retail] Marketing Consent & Verification': ['gold_promo_fraud_scoring', 'bronze_privacy_consents', 'gold_customer_360'],
+    'Consent Verification': ['gold_promo_fraud_scoring', 'bronze_privacy_consents', 'gold_customer_360'],
+    '[Retail] Markdown Value at Risk (VaR)': ['gold_markdown_risk_var', 'silver_inventory_positions', 'silver_competitor_pricing'],
+    'VaR': ['gold_markdown_risk_var', 'silver_inventory_positions', 'silver_competitor_pricing'],
+    '[Retail] Global Trade Item Number (GTIN-13)': ['silver_product_skus', 'bronze_product_skus', 'gold_inventory_allocation'],
+    'GTIN': ['silver_product_skus', 'bronze_product_skus', 'gold_inventory_allocation'],
+    '[Retail] Store ID': ['gold_store_performance', 'gold_customer_360', 'bronze_stores', 'gold_gross_margin_analysis'],
+    'Store': ['gold_store_performance', 'gold_customer_360', 'bronze_stores', 'gold_gross_margin_analysis'],
+    '[Retail] Gross Margin Percentage': ['gold_gross_margin_analysis', 'silver_loyalty_accounts', 'silver_bnpl_plans'],
+    'Gross Margin': ['gold_gross_margin_analysis', 'silver_loyalty_accounts', 'silver_bnpl_plans'],
+    '[Retail] Return Risk Tier': ['gold_bnpl_plan_summary', 'silver_bnpl_plans', 'bronze_bnpl_plans'],
+    'Risk Rating': ['gold_bnpl_plan_summary', 'silver_bnpl_plans', 'bronze_bnpl_plans'],
 }
 
 # Discovered state — populated at startup by _discover_*() functions
@@ -173,7 +185,7 @@ def _get_or_create_session(agent_id, user_id):
         logger.info("Session response: status=%d body=%s", resp.status_code, resp.text[:500])
         if resp.status_code == 200:
             output = resp.json().get("output", {})
-            session_id = output.get("id", "") if isinstance(output, dict) else str(output)
+            session_id = output.get("id", "") if type(output) is dict else str(output)
             _sessions[key] = session_id
             _session_times[key] = time.time()
             return session_id
@@ -332,16 +344,16 @@ def reset_session():
 
 
 DATASET_MAP = {
-    'gold_': 'fsi_gold', 'silver_': 'fsi_silver', 'bronze_': 'fsi_bronze',
-    'ref_': 'fsi_reference', 'staging_': 'fsi_supplementary',
-    'snapshot_': 'fsi_supplementary', 'audit_': 'fsi_supplementary',
-    'vw_': 'fsi_dashboards',
+    'gold_': 'retail_gold', 'silver_': 'retail_silver', 'bronze_': 'retail_bronze',
+    'ref_': 'retail_reference', 'staging_': 'retail_supplementary',
+    'snapshot_': 'retail_supplementary', 'audit_': 'retail_supplementary',
+    'vw_': 'retail_dashboards',
 }
 
 _table_info_cache = {}
 _term_info_cache = {}
 
-GLOSSARY_ID = os.environ.get("GLOSSARY_ID", "meridian-national-bank-glossary-us")
+GLOSSARY_ID = os.environ.get("GLOSSARY_ID", "retail-northwind-glossary-us")
 
 _SNOWFLAKE_TABLES = []
 _SNOWFLAKE_SCHEMA_MAP = {}
@@ -417,7 +429,7 @@ def _discover_bigquery_tables():
                     continue
                 dataset = match.group(1)
                 table = match.group(2)
-                if dataset not in _FSI_DATASETS:
+                if dataset not in _RETAIL_DATASETS:
                     continue
                 tier = _DATASET_TO_TIER.get(dataset, 'ref')
                 tables_by_tier[tier].append(table)
@@ -479,11 +491,14 @@ def _discover_glossary():
             for display_name in terms:
                 lower = display_name.lower()
                 GLOSSARY_TERM_MAP[lower] = [display_name]
-                words = lower.split()
-                if len(words) > 1:
-                    existing = GLOSSARY_TERM_MAP.get(words[0], [])
-                    if display_name not in existing:
-                        GLOSSARY_TERM_MAP[words[0]] = existing + [display_name]
+                clean = lower.replace('[retail] ', '').strip()
+                if clean:
+                    GLOSSARY_TERM_MAP[clean] = [display_name]
+                    words = clean.split()
+                    if len(words) > 1 and len(words[0]) >= 3:
+                        existing = GLOSSARY_TERM_MAP.get(words[0], [])
+                        if display_name not in existing:
+                            GLOSSARY_TERM_MAP[words[0]] = existing + [display_name]
             logger.info("Discovered %d glossary terms: %s", len(terms), list(terms.keys()))
     except Exception as e:
         logger.warning("Glossary discovery error: %s", e)
@@ -506,7 +521,7 @@ def _get_dataset(table_name):
     for prefix, ds in DATASET_MAP.items():
         if table_name.startswith(prefix):
             return ds
-    return 'fsi_gold'
+    return 'retail_gold'
 
 
 def _get_tier(table_name):

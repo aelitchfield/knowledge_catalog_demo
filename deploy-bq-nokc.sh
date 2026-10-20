@@ -27,6 +27,11 @@
 
 set -e
 
+# Disable gcloud mTLS client-cert helper (avoids Python 3.14 segfault in bq CLI)
+export GOOGLE_API_USE_CLIENT_CERTIFICATE=false
+export CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false
+export RETAIL_TAXONOMY_DISPLAY_NAME="${RETAIL_TAXONOMY_DISPLAY_NAME:-Retail Demo Sensitivity Taxonomy (alitch)}"
+
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT before running this script}"
 LOCATION="us"
 
@@ -38,14 +43,14 @@ fi
 
 # Source → _nokc dataset mapping
 DATASETS=(
-    fsi_bronze
-    fsi_silver
-    fsi_gold
-    fsi_reference
-    fsi_dashboards
-    fsi_staging
-    fsi_snapshots
-    fsi_audit
+    retail_bronze
+    retail_silver
+    retail_gold
+    retail_reference
+    retail_dashboards
+    retail_staging
+    retail_snapshots
+    retail_audit
 )
 
 echo "=== Creating _nokc datasets ==="

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-FSI Knowledge Catalog Agent — Uses KC MCP remote server to navigate 150+ tables.
+Retail Knowledge Catalog Agent — Uses KC MCP remote server to navigate 150+ tables.
 
 Connects to the Knowledge Catalog MCP server (dataplex.googleapis.com/mcp) via
 ADK's McpToolset for dynamic discovery of tables, data products, and metadata.
@@ -42,12 +42,12 @@ import google.auth
 import google.auth.transport.requests
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
-BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "agent_analytics")
+BQ_ANALYTICS_DATASET = os.environ.get("BQ_ANALYTICS_DATASET", "retail_agent_analytics")
 
 def _get_bq_client():
     return bigquery.Client(project=PROJECT_ID)
 
-SYSTEM_INSTRUCTION = f"""You are a senior financial data analyst for Meridian National Bank. You have
+SYSTEM_INSTRUCTION = f"""You are a senior retail & merchandising data analyst for Northwind Retail Group. You have
 access to Knowledge Catalog for discovering and understanding data assets, and BigQuery for
 running SQL queries.
 
@@ -91,7 +91,7 @@ Entry names from search results are in the `dataplexEntry.name` field of each re
    real numbers, formatted with $ and commas. Explain what they mean for the business.
 
    **Data Governance Notes** — Relevant metadata: data classification, source lineage
-   (ATLAS/FORTUNA/ARGUS), data quality rules, glossary definitions for key terms.
+   (ORION/LUMEN/HELIOS), data quality rules, glossary definitions for key terms.
 
    **Recommendations** — Suggested actions or further analysis based on findings.
 
@@ -102,11 +102,11 @@ include the data.
 ## Important rules:
 - NEVER guess which table to use — always search Knowledge Catalog first
 - Prefer gold tables for analytics, silver for detail, bronze only when needed
-- Your audience is banking executives — be thorough but results-focused
+- Your audience is retail executives — be thorough but results-focused
 - Search results are JSON: extract `dataplexEntry.name` for entry names and
   `fullyQualifiedName` (e.g. `bigquery:project.dataset.table`) for BigQuery table refs
 - If a search returns no useful results, try different search terms — the catalog supports
-  semantic search so use natural language like "balance sheet" or "customer deposits"
+  semantic search so use natural language like "balance sheet" or "customer loyalty_balances"
 - NEVER respond without using tools — always search, understand, and query first
 """
 
@@ -180,7 +180,7 @@ if SNOWFLAKE_ENABLED:
             password=os.environ["SNOWFLAKE_AGENT_PASSWORD"],
             warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", "NEXUS_WH"),
             database=os.environ.get("SNOWFLAKE_DATABASE", "NEXUS_MARKET_DATA"),
-            role="FSI_KC_AGENT_ROLE",
+            role="RETAIL_KC_AGENT_ROLE",
         )
 
     def _get_sf_connection():
@@ -222,7 +222,7 @@ if SNOWFLAKE_ENABLED:
 
         Use this when Knowledge Catalog search reveals data in Snowflake
         (NEXUS market data). Use fully qualified names: DATABASE.SCHEMA.TABLE.
-        For example: NEXUS_MARKET_DATA.SECURITIES.SECURITY_PRICES
+        For example: NEXUS_MARKET_DATA.PRODUCT_SKUS.SECURITY_PRICES
         """
         try:
             return _run_sf_query(sql)
@@ -244,11 +244,11 @@ This CHANGES step 1 (DISCOVER) above — you MUST search both BigQuery AND Snowf
 if the question touches ANY of these topics, you MUST run an additional search with "snowflake"
 as the first keyword:
 
-  Trigger topics: rates, SOFR, Treasury, yield, interest rate, benchmark, prices, securities,
-  FX, forex, credit spread, volatility, economic indicators, market data, index, fundamentals,
+  Trigger topics: rates, markdown rate, promotional discount, category benchmark, prices, product_skus,
+  FX, forex, supplier terms, demand volatility, retail indicators, competitor pricing, index, fundamentals,
   corporate actions, multi-cloud, cross-platform
 
-  Examples: search_entries("snowflake SOFR"), search_entries("snowflake Treasury yield")
+  Examples: search_entries("snowflake competitor pricing"), search_entries("snowflake category benchmark")
 
 Do NOT skip this step even if BigQuery already returned relevant-looking tables. NEXUS may have
 complementary or more current data. A multi-cloud or cross-platform question ALWAYS requires
@@ -256,21 +256,21 @@ searching both platforms.
 
 When search results include Snowflake entries (entry type `snowflake-table`), use
 `query_snowflake` instead of `run_sql`. Use fully qualified Snowflake table names:
-`NEXUS_MARKET_DATA.SCHEMA.TABLE` (e.g., `NEXUS_MARKET_DATA.SECURITIES.SECURITY_PRICES`).
+`NEXUS_MARKET_DATA.SCHEMA.TABLE` (e.g., `NEXUS_MARKET_DATA.PRODUCT_SKUS.SECURITY_PRICES`).
 
 For cross-platform questions, query BOTH BigQuery AND Snowflake, then combine and compare the
-results in your analysis. For example, portfolio holdings live in BigQuery while current
+results in your analysis. For example, assortment holdings live in BigQuery while current
 security prices live in Snowflake. When both platforms have data for the same topic (e.g.,
-interest rates), present both and note any differences.
+markdown rates), present both and note any differences.
 
 When querying Snowflake for pricing data, prefer broad filters (date range, asset class) over
-large IN-lists of identifiers. If a BigQuery result returns more than ~20 securities, query
+large IN-lists of identifiers. If a BigQuery result returns more than ~20 product_skus, query
 Snowflake for the full pricing universe for that date and match in your analysis rather than
-passing all CUSIPs into a single WHERE clause.
+passing all GTINs into a single WHERE clause.
 
 NEXUS provides: security prices, fundamentals, corporate actions, benchmark returns,
-index constituents, interest rate curves (SOFR, Fed Funds, Treasuries), economic indicators,
-FX spot rates, credit spreads, and volatility surfaces.
+index constituents, markdown rate curves and promotional elasticity, economic indicators,
+FX spot rates, supplier margin spreads, and volatility surfaces.
 """
 
 _kc_tools = [kc_toolset, run_sql]
@@ -282,8 +282,9 @@ if SNOWFLAKE_ENABLED:
     _kc_instruction += SNOWFLAKE_PROMPT_EXTENSION
 
 root_agent = Agent(
-    name="fsi_kc_agent",
+    name="retail_kc_agent",
     model="gemini-2.5-flash",
+    description="[Retail] Northwind Retail Knowledge Catalog Agent (128+ tables with KC MCP discovery)",
     instruction=_kc_instruction,
     tools=_kc_tools,
 )
@@ -296,7 +297,7 @@ bq_analytics_plugin = BigQueryAgentAnalyticsPlugin(
 )
 
 app = App(
-    name="fsi_kc_agent",
+    name="retail_kc_agent",
     root_agent=root_agent,
     plugins=[bq_analytics_plugin],
 )
@@ -304,18 +305,18 @@ app = App(
 
 async def run_interactive():
     session_service = InMemorySessionService()
-    runner = Runner(agent=root_agent, app_name="fsi_kc_agent", session_service=session_service)
-    session = await session_service.create_session(app_name="fsi_kc_agent", user_id="demo_user")
+    runner = Runner(agent=root_agent, app_name="retail_kc_agent", session_service=session_service)
+    session = await session_service.create_session(app_name="retail_kc_agent", user_id="demo_user")
 
     print("\n" + "=" * 60)
-    print("FSI Knowledge Catalog Agent (150+ tables WITH KC guidance)")
+    print("Retail Knowledge Catalog Agent (150+ tables WITH KC guidance)")
     print("Powered by ADK + Knowledge Catalog MCP Server + BigQuery")
     print("=" * 60)
     print("\nExample questions:")
-    print('  "What is our total relationship value for high-net-worth clients?"')
-    print('  "Show me suspicious activity trends by quarter"')
-    print('  "What is our CET1 capital ratio and how does it compare to minimums?"')
-    print('  "Which branches have the highest combined retail + wealth revenue?"')
+    print('  "What is our total lifetime value for VIP loyalty members?"')
+    print('  "Show me return fraud and promo abuse trends by quarter"')
+    print('  "What is our working capital ratio and how does it compare to minimums?"')
+    print('  "Which stores have the highest combined POS + e-commerce loyalty revenue?"')
     print('\nType "quit" to exit.\n')
 
     from google.genai import types

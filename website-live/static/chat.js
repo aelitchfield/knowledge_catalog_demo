@@ -6,7 +6,7 @@ if (typeof marked !== 'undefined') {
 
 let _DATASET_MAP = {};
 let _GLOSSARY_TERMS = {};
-let _GLOSSARY_ID = 'meridian-national-bank-glossary-us';
+let _GLOSSARY_ID = 'retail-northwind-glossary-us';
 const _TABLE_RE = /\b((?:gold|silver|bronze|ref|vw|staging|snapshot|audit)_[a-z0-9_]+)\b/g;
 let _projectNumber = '';
 let _snowflakeTables = new Set();

@@ -18,9 +18,9 @@ EVERY_TABLE = ALL_TABLES
 
 
 def scan_id(dataset, table, scan_type):
-    layer = dataset.replace("fsi_", "")
+    layer = dataset.replace("retail_", "")
     tname = table.replace(f"{layer}_", "").replace("bronze_", "").replace("silver_", "").replace("gold_", "")
-    return f"fsi-{layer}-{tname}-{scan_type}".replace("_", "-")
+    return f"retail-{layer}-{tname}-{scan_type}".replace("_", "-")
 
 
 def bq_resource(cfg, dataset, table):

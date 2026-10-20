@@ -28,13 +28,13 @@ logger = logging.getLogger(__name__)
 DATABASE = "NEXUS_MARKET_DATA"
 WAREHOUSE = "NEXUS_WH"
 
-SCHEMAS = ["SECURITIES", "INDICES", "ECONOMICS", "RISK_ANALYTICS"]
+SCHEMAS = ["PRODUCT_SKUS", "INDICES", "ECONOMICS", "RISK_ANALYTICS"]
 
 TABLES: Dict[str, List[Tuple[str, str]]] = {
-    "SECURITIES": [
+    "PRODUCT_SKUS": [
         (
             "SECURITY_PRICES",
-            "Daily closing prices by CUSIP/ISIN from NEXUS market data feed",
+            "Daily closing prices by GTIN/SKU from NEXUS market data feed",
         ),
         (
             "SECURITY_FUNDAMENTALS",
@@ -49,7 +49,7 @@ TABLES: Dict[str, List[Tuple[str, str]]] = {
         ),
         (
             "INDEX_CONSTITUENTS",
-            "Constituent securities for each benchmark index",
+            "Constituent product_skus for each benchmark index",
         ),
     ],
     "ECONOMICS": [
@@ -166,19 +166,19 @@ TAG_ASSIGNMENTS: Dict[str, Dict[str, str]] = {
     },
 }
 
-# Matches BQ formula: LPAD(CAST(MOD(n * 7, 1000000000) AS STRING), 9, '0')
-# We generate the same CUSIPs for n=1..500 (subset of the 5000 in BQ)
-CUSIP_SEED_RANGE = range(1, 501)
+# Matches BQ formula: CONCAT('0085', LPAD(CAST(MOD(n * 7, 1000000000) AS STRING), 9, '0'))
+# We generate the same GTINs for n=1..500 (subset of the 5000 in BQ)
+GTIN_SEED_RANGE = range(1, 501)
 
 
-def generate_cusip(n: int) -> str:
-    """Generate a 9-digit CUSIP matching the BQ formula: LPAD(CAST(MOD(n * 7, 1000000000) AS STRING), 9, '0')."""
+def generate_gtin13(n: int) -> str:
+    """Generate a 9-digit GTIN matching the BQ formula: CONCAT('0085', LPAD(CAST(MOD(n * 7, 1000000000) AS STRING), 9, '0'))."""
     return str((n * 7) % 1_000_000_000).zfill(9)
 
 
-def generate_isin(n: int) -> str:
-    """Generate a 12-character ISIN: 'US' + cusip + (n % 10)."""
-    return f"US{generate_cusip(n)}{n % 10}"
+def generate_sku(n: int) -> str:
+    """Generate a 12-character SKU: 'US' + gtin_13 + (n % 10)."""
+    return f"US{generate_gtin13(n)}{n % 10}"
 
 
 def us_business_days(start_date: str, count: int) -> list[str]:
@@ -205,7 +205,7 @@ def get_snowflake_connection() -> snowflake.connector.SnowflakeConnection:
         password=os.environ["SNOWFLAKE_PASSWORD"],
         warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", WAREHOUSE),
         database=os.environ.get("SNOWFLAKE_DATABASE", DATABASE),
-        role="FSI_KC_SETUP_ROLE",
+        role="RETAIL_KC_SETUP_ROLE",
     )
 
 
@@ -217,7 +217,7 @@ def get_agent_snowflake_connection() -> snowflake.connector.SnowflakeConnection:
         password=os.environ["SNOWFLAKE_AGENT_PASSWORD"],
         warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", WAREHOUSE),
         database=os.environ.get("SNOWFLAKE_DATABASE", DATABASE),
-        role="FSI_KC_AGENT_ROLE",
+        role="RETAIL_KC_AGENT_ROLE",
     )
 
 
