@@ -53,18 +53,18 @@ def build_quality_rules():
     ]
 
     rules[("retail_bronze", "bronze_bnpl_plans")] = [
-        {"column": "bnpl_plan_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "bnpl_plan-id-not-null"},
+        {"column": "bnpl_plan_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "bnpl-plan-id-not-null"},
         {"column": "customer_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "customer-id-not-null"},
         {"column": "original_amount", "rangeExpectation": {"minValue": "0", "strictMinEnabled": True}, "dimension": "VALIDITY", "name": "amount-positive"},
         {"column": "interest_rate", "rangeExpectation": {"minValue": "0", "maxValue": "0.30"}, "dimension": "VALIDITY", "name": "rate-range"},
-        {"column": "return_risk_score_at_signup", "rangeExpectation": {"minValue": "300", "maxValue": "850"}, "dimension": "VALIDITY", "name": "return_risk-range"},
+        {"column": "return_risk_score_at_signup", "rangeExpectation": {"minValue": "300", "maxValue": "850"}, "dimension": "VALIDITY", "name": "return-risk-range"},
         {"column": "risk_rating", "setExpectation": {"values": ["Pass", "Special Mention", "Substandard", "Doubtful", "Loss"]}, "dimension": "VALIDITY", "name": "risk-rating-valid"},
     ]
 
     rules[("retail_silver", "silver_customers")] = [
         {"column": "customer_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "pk-not-null"},
         {"column": "customer_id", "uniquenessExpectation": {}, "dimension": "UNIQUENESS", "name": "pk-unique"},
-        {"column": "member_tin_masked", "regexExpectation": {"regex": r"^XXX-XX-\d{4}$"}, "dimension": "VALIDITY", "name": "member_tin-masked-format", "ignoreNull": True},
+        {"column": "member_tin_masked", "regexExpectation": {"regex": r"^XXX-XX-\d{4}$"}, "dimension": "VALIDITY", "name": "member-tin-masked-format", "ignoreNull": True},
         {"rowConditionExpectation": {"sqlExpression": "date_of_birth <= CURRENT_DATE()"}, "dimension": "VALIDITY", "name": "dob-not-future"},
     ]
 
@@ -80,7 +80,7 @@ def build_quality_rules():
         {"column": "customer_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "pk-not-null"},
         {"column": "customer_id", "uniquenessExpectation": {}, "dimension": "UNIQUENESS", "name": "pk-unique"},
         {"column": "total_relationship_value", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "relationship-value-non-negative"},
-        {"column": "total_loyalty_balance", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "loyalty_balances-non-negative"},
+        {"column": "total_loyalty_balance", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "loyalty-balances-non-negative"},
     ]
 
     rules[("retail_gold", "gold_bnpl_plan_summary")] = [

@@ -147,6 +147,7 @@ def set_term_contacts(cfg, term_id, steward_name, steward_email, owner_name, own
 
 
 def create_entry_link(cfg, link_id, term_a, term_b, link_type):
+    link_id = link_id[:63].rstrip("-")
     url = (
         f"{BASE_URL}/projects/{cfg['project_id']}/locations/{cfg['multi_region']}"
         f"/entryGroups/@dataplex/entryLinks?entryLinkId={link_id}"
@@ -357,7 +358,7 @@ def create_definition_link(cfg, term_id, dataset, table, column=None):
     pid = cfg["project_id"]
     loc = cfg["multi_region"]
     col_suffix = f"-{column.replace('_', '-')}" if column else ""
-    link_id = f"def-{term_id}-{table.replace('_', '-')}{col_suffix}"[:63]
+    link_id = f"def-{term_id}-{table.replace('_', '-')}{col_suffix}"[:63].rstrip("-")
 
     source_ref = {"name": bq_table_entry(cfg, dataset, table), "type": "SOURCE"}
     if column:

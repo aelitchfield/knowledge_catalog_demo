@@ -119,7 +119,7 @@ def main():
         ]),
         ("retail-risk-classification", "[Retail] Risk Data Classification", "[Retail] Return fraud, shrinkage, markdown, and supply chain risk tagging", [
             {"name": "risk_category", "type": "enum", "index": 1, "constraints": {"required": True}, "annotations": {"displayName": "Risk Category"},
-             "enumValues": [{"name": "Return & Fraud Risk", "index": 1}, {"name": "Demand & Markdown Risk", "index": 2}, {"name": "Shrinkage & Ops Risk", "index": 3}, {"name": "Stockout & Liquidity Risk", "index": 4}, {"name": "Privacy & PCI Risk", "index": 5}, {"name": "Not Risk Data", "index": 6}]},
+             "enumValues": [{"name": "Return and Fraud Risk", "index": 1}, {"name": "Demand and Markdown Risk", "index": 2}, {"name": "Shrinkage and Ops Risk", "index": 3}, {"name": "Stockout and Liquidity Risk", "index": 4}, {"name": "Privacy and PCI Risk", "index": 5}, {"name": "Not Risk Data", "index": 6}]},
             {"name": "model_dependency", "type": "enum", "index": 2, "annotations": {"displayName": "Model Dependency"},
              "enumValues": [{"name": "Model Input", "index": 1}, {"name": "Model Output", "index": 2}, {"name": "Model Calibration", "index": 3}, {"name": "Not Model Related", "index": 4}]},
             {"name": "materiality_level", "type": "enum", "index": 3, "annotations": {"displayName": "Materiality Level"},
@@ -131,7 +131,7 @@ def main():
             {"name": "filing_frequency", "type": "enum", "index": 2, "annotations": {"displayName": "Filing Frequency"},
              "enumValues": [{"name": "Daily", "index": 1}, {"name": "Monthly", "index": 2}, {"name": "Quarterly", "index": 3}, {"name": "Semi-Annual", "index": 4}, {"name": "Annual", "index": 5}, {"name": "Ad Hoc", "index": 6}]},
             {"name": "regulatory_body", "type": "enum", "index": 3, "annotations": {"displayName": "Regulatory Body"},
-             "enumValues": [{"name": "PCI-SSC", "index": 1}, {"name": "CPPA (CCPA/CPRA)", "index": 2}, {"name": "EU DPA (GDPR)", "index": 3}, {"name": "FTC", "index": 4}, {"name": "SEC", "index": 5}, {"name": "GS1 US", "index": 6}, {"name": "State Attorney General", "index": 7}, {"name": "Internal Audit", "index": 8}]},
+             "enumValues": [{"name": "PCI-SSC", "index": 1}, {"name": "CPPA CCPA-CPRA", "index": 2}, {"name": "EU DPA GDPR", "index": 3}, {"name": "FTC", "index": 4}, {"name": "SEC", "index": 5}, {"name": "GS1 US", "index": 6}, {"name": "State Attorney General", "index": 7}, {"name": "Internal Audit", "index": 8}]},
             {"name": "schedule_line_item", "type": "string", "index": 4, "annotations": {"displayName": "Schedule / Line Item"}},
         ]),
     ]

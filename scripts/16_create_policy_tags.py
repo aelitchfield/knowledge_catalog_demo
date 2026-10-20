@@ -67,27 +67,29 @@ def _api(method, url, body=None):
 # project+location; a stuck/reserved name would otherwise dead-end this step.
 # Keep the override set on every subsequent run, or reruns will create a second
 # taxonomy under the default name and repoint the column tags to it.
-TAXONOMY_DISPLAY = os.environ.get("RETAIL_TAXONOMY_DISPLAY_NAME") or "Retail Demo Sensitivity Taxonomy (alitch)"
+_RAW_TAXONOMY_DISPLAY = os.environ.get("RETAIL_TAXONOMY_DISPLAY_NAME") or "Retail Demo Sensitivity Taxonomy - alitch"
+# Data Catalog taxonomy/policyTag displayNames allow only letters, numbers, spaces, hyphens, and underscores.
+TAXONOMY_DISPLAY = _RAW_TAXONOMY_DISPLAY.replace("(", "- ").replace(")", "").replace("[", "").replace("]", "").strip()
 
 POLICY_TAGS = [
     {
         "id": "highly-sensitive",
-        "display_name": "[Retail] Highly Sensitive PII",
+        "display_name": "Retail - Highly Sensitive PII",
         "description": "[Retail] Direct identifiers: Member-TIN/TIN, date of birth. Requires encryption at rest and column-level masking. Subject to CCPA, FCRA, and state privacy laws.",
     },
     {
         "id": "sensitive",
-        "display_name": "[Retail] Sensitive PII",
+        "display_name": "Retail - Sensitive PII",
         "description": "[Retail] Personal identifiers: name, email, phone, address. Requires access controls and audit logging. Subject to CCPA and CAN-SPAM.",
     },
     {
         "id": "confidential",
-        "display_name": "[Retail] Confidential Financial",
+        "display_name": "Retail - Confidential Financial",
         "description": "[Retail] Non-public financial data: Return-Risk scores, APR, AUM, account balances. Internal use only. Subject to Regulation FD and internal information barriers.",
     },
     {
         "id": "internal",
-        "display_name": "[Retail] Internal",
+        "display_name": "Retail - Internal",
         "description": "[Retail] Business operational data not for external distribution. Standard access controls apply.",
     },
 ]
@@ -283,10 +285,18 @@ def main():
             ["gcloud", "projects", "describe", pid, "--format=value(projectNumber)"],
             capture_output=True, text=True, timeout=10,
         ).stdout.strip()
-    for sa in [
+    active_user = subprocess.run(
+        ["gcloud", "config", "get-value", "account"],
+        capture_output=True, text=True, timeout=10,
+    ).stdout.strip()
+    principals = [
         f"serviceAccount:service-{pn}@gcp-sa-aiplatform-re.iam.gserviceaccount.com",
+        f"serviceAccount:service-{pn}@gcp-sa-dataplex.iam.gserviceaccount.com",
         f"serviceAccount:{pn}-compute@developer.gserviceaccount.com",
-    ]:
+    ]
+    if active_user:
+        principals.append(f"user:{active_user}")
+    for sa in principals:
         subprocess.run([
             "gcloud", "data-catalog", "taxonomies", "add-iam-policy-binding", taxonomy_name,
             "--location=us", f"--project={pid}",

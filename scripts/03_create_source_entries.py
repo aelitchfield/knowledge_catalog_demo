@@ -55,7 +55,7 @@ SYSTEMS = [
         "instance_desc": "Production IBM DB2 z/OS v13.1 mainframe. 2-way LPAR, 128GB, DASD. IBM CDC replication to BigQuery.",
         "schema_name": "STORE_POS",
         "schema_desc": "Core retail schema: 14 CDC-replicated tables, ~100M+ rows.",
-        "fqn_prefix": "ibmi:orion-prod.STORE_POS",
+        "fqn_prefix": "db2:orion-prod.STORE_POS",
         "resource_prefix": "//db2.northwindretail.internal/instances/ORION_PROD/schemas/STORE_POS",
         "tables": [
             ("customers-table", "CUSTOMERS", "Master customer file (500K rows)", [
@@ -88,7 +88,7 @@ SYSTEMS = [
         "instance_desc": "[Retail] Production Salesforce Commerce Cloud. Digital Commerce & Loyalty platform. Commerce Export API to BigQuery.",
         "schema_name": "DIGITAL_COMMERCE",
         "schema_desc": "[Retail] Digital Commerce & Loyalty module: 13 API-replicated tables.",
-        "fqn_prefix": "sfcc:lumen-prod.DIGITAL_COMMERCE",
+        "fqn_prefix": "custom:lumen-prod.DIGITAL_COMMERCE",
         "resource_prefix": "//salesforce.northwindretail.internal/instances/LUMEN_PROD/schemas/DIGITAL_COMMERCE",
         "tables": [
             ("wm-clients-table", "WM_CLIENTS", "HNW/UHNW clients (50K rows)", [
@@ -118,7 +118,7 @@ SYSTEMS = [
         "instance_desc": "[Retail] Production SAP S/4HANA Retail. Merchandising, Supply Chain & Finance. SAP SLT replication to BigQuery.",
         "schema_name": "MERCH_FINANCE",
         "schema_desc": "[Retail] Merchandising, Supply Chain & Finance schema: 13 SAP SLT-replicated tables.",
-        "fqn_prefix": "hana:helios-prod.MERCH_FINANCE",
+        "fqn_prefix": "custom:helios-prod.MERCH_FINANCE",
         "resource_prefix": "//sap.northwindretail.internal/instances/HELIOS_PROD/schemas/MERCH_FINANCE",
         "tables": [
             ("gl-entries-table", "GL_ENTRIES", "General ledger entries (10M rows)", [

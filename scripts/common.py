@@ -185,8 +185,9 @@ def scan_id(dataset: str, table: str, scan_type: str) -> str:
     tname = (table.replace(f"{layer}_", "")
              .replace("bronze_", "")
              .replace("silver_", "")
-             .replace("gold_", ""))
-    return f"retail-{layer}-{tname}-{scan_type}".replace("_", "-")
+             .replace("gold_", "")
+             .replace("snapshot_", ""))
+    return f"retail-{layer}-{tname}-{scan_type}".replace("_", "-")[:63].rstrip("-")
 
 
 def get_access_token() -> str:

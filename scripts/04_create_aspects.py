@@ -119,6 +119,22 @@ def get_table_aspects(ds, tbl):
     else:
         aspects["retail-access-control"] = {"access_level": "Restricted", "authorized_roles": "Department Head, Data Analyst, Operations", "requires_mfa": False, "need_to_know_applies": True, "audit_all_access": False}
 
+    if any(x in tbl for x in ["fraud", "return", "card_trans"]):
+        aspects["retail-risk-classification"] = {"risk_category": "Return and Fraud Risk", "model_dependency": "Model Input", "materiality_level": "Significant", "sox_relevant": False}
+    elif any(x in tbl for x in ["stress", "risk", "performance", "assortment"]):
+        aspects["retail-risk-classification"] = {"risk_category": "Demand and Markdown Risk", "model_dependency": "Model Output", "materiality_level": "Material", "sox_relevant": True}
+    elif any(x in tbl for x in ["capital", "gl_", "holding"]):
+        aspects["retail-risk-classification"] = {"risk_category": "Stockout and Liquidity Risk", "model_dependency": "Model Input", "materiality_level": "Material", "sox_relevant": True}
+    elif any(x in tbl for x in ["customers", "wm_clients", "kyc", "compliance"]):
+        aspects["retail-risk-classification"] = {"risk_category": "Privacy and PCI Risk", "model_dependency": "Not Model Related", "materiality_level": "Significant", "sox_relevant": False}
+
+    if any(x in tbl for x in ["regulatory", "compliance", "kyc"]):
+        aspects["retail-regulatory-reporting"] = {"report_name": "CCPA-CPRA Annual Privacy & Supplier Audit", "filing_frequency": "Annual", "regulatory_body": "CPPA CCPA-CPRA", "schedule_line_item": "Schedule A - Consumer Privacy & Supplier Compliance"}
+    elif any(x in tbl for x in ["card_trans", "credit_cards", "transactions", "fraud"]):
+        aspects["retail-regulatory-reporting"] = {"report_name": "PCI-DSS v4.0 Report on Compliance (ROC)", "filing_frequency": "Quarterly", "regulatory_body": "PCI-SSC", "schedule_line_item": "Req 3 & Req 10 - Cardholder Data Protection"}
+    elif any(x in tbl for x in ["gl_", "capital", "stress"]):
+        aspects["retail-regulatory-reporting"] = {"report_name": "Form 10-K / SOX 404 Retail Financial Controls", "filing_frequency": "Quarterly", "regulatory_body": "SEC", "schedule_line_item": "Item 7 - MD&A Inventory & Working Capital"}
+
     return aspects
 
 

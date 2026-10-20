@@ -19,6 +19,10 @@
 # Called after BigQuery tables are created (deploy-bq.sh or Terraform).
 ####################################################################################
 
+export GOOGLE_API_USE_CLIENT_CERTIFICATE=false
+export CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false
+export RETAIL_TAXONOMY_DISPLAY_NAME="${RETAIL_TAXONOMY_DISPLAY_NAME:-Retail Demo Sensitivity Taxonomy (alitch)}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)"
 cd "${SCRIPT_DIR}"
 
