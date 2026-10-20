@@ -22,6 +22,9 @@ import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+os.environ.setdefault("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+os.environ.setdefault("CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE", "false")
+
 import google.auth
 import google.auth.transport.requests
 import requests as http_requests

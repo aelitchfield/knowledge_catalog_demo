@@ -53,10 +53,17 @@ DATASETS=(
     retail_audit
 )
 
-echo "=== Creating _nokc datasets ==="
+echo "=== Creating _nokc datasets (8 shadow datasets with [Retail] descriptions & labels) ==="
 for ds in "${DATASETS[@]}"; do
+    desc="[Retail] Uncataloged shadow dataset (${ds}_nokc) for Scaled Agent comparison"
     bq --project_id="${PROJECT_ID}" mk --location="${LOCATION}" \
-        --dataset "${PROJECT_ID}:${ds}_nokc" 2>/dev/null || echo "  ${ds}_nokc already exists"
+        --description="${desc}" \
+        --label=use-case:retail --label=demo:retail-knowledge-catalog --label=owner:alitch --label=env:demo \
+        --dataset "${PROJECT_ID}:${ds}_nokc" 2>/dev/null || \
+    bq --project_id="${PROJECT_ID}" update \
+        --description="${desc}" \
+        --set_label=use-case:retail --set_label=demo:retail-knowledge-catalog --set_label=owner:alitch --set_label=env:demo \
+        --dataset "${PROJECT_ID}:${ds}_nokc" >/dev/null 2>&1 || echo "  ${ds}_nokc already exists"
 done
 
 echo "=== Copying tables to _nokc datasets ==="

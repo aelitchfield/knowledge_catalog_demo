@@ -49,9 +49,29 @@ ${select_part}"
 }
 
 if ! ${REFRESH_MODE}; then
-    echo "=== Creating BigQuery Datasets ==="
-    for ds in retail_bronze retail_silver retail_gold retail_scan_results retail_staging retail_snapshots retail_audit retail_reference retail_dashboards; do
-        bq --project_id="${PROJECT_ID}" mk --location="${LOCATION}" --dataset "${PROJECT_ID}:${ds}" 2>/dev/null || echo "  ${ds} already exists"
+    echo "=== Creating BigQuery Datasets (10 datasets with [Retail] descriptions & labels) ==="
+    declare -A DS_DESC=(
+        ["retail_bronze"]="[Retail] Northwind Retail Group — raw ingestion layer (ORION + LUMEN + HELIOS)"
+        ["retail_silver"]="[Retail] Northwind Retail Group — cleansed and conformed layer"
+        ["retail_gold"]="[Retail] Northwind Retail Group — business analytics layer"
+        ["retail_scan_results"]="[Retail] Data quality and profile scan results for Retail tables"
+        ["retail_staging"]="[Retail] Retail compliance and omnichannel filing staging tables"
+        ["retail_snapshots"]="[Retail] Historical inventory, loyalty, and pricing snapshot tables"
+        ["retail_audit"]="[Retail] Retail data access audit trail and model decision logs"
+        ["retail_reference"]="[Retail] Reference and lookup tables for Retail data validation"
+        ["retail_dashboards"]="[Retail] Pre-aggregated views for Retail Looker Studio dashboards"
+        ["retail_agent_analytics"]="[Retail] ADK BigQuery Agent Analytics event log dataset"
+    )
+    for ds in retail_bronze retail_silver retail_gold retail_scan_results retail_staging retail_snapshots retail_audit retail_reference retail_dashboards retail_agent_analytics; do
+        desc="${DS_DESC[$ds]}"
+        bq --project_id="${PROJECT_ID}" mk --location="${LOCATION}" \
+            --description="${desc}" \
+            --label=use-case:retail --label=demo:retail-knowledge-catalog --label=owner:alitch --label=env:demo \
+            --dataset "${PROJECT_ID}:${ds}" 2>/dev/null || \
+        bq --project_id="${PROJECT_ID}" update \
+            --description="${desc}" \
+            --set_label=use-case:retail --set_label=demo:retail-knowledge-catalog --set_label=owner:alitch --set_label=env:demo \
+            --dataset "${PROJECT_ID}:${ds}" >/dev/null 2>&1 || echo "  ${ds} already exists"
     done
 fi
 
