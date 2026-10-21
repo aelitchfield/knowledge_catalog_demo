@@ -2,16 +2,16 @@ CREATE OR REPLACE TABLE `${project_id}.retail_snapshots.snapshot_daily_competito
 SELECT
   DATE_ADD('2024-01-01', INTERVAL CAST(FLOOR(n / 100.0) AS INT64) DAY) AS snapshot_date,
   CASE MOD(n, 10)
-    WHEN 0 THEN 'S&P 500' WHEN 1 THEN 'DJIA' WHEN 2 THEN 'NASDAQ' WHEN 3 THEN 'Russell 2000'
-    WHEN 4 THEN '10Y Treasury' WHEN 5 THEN 'Fed Funds' WHEN 6 THEN 'EUR/USD'
-    WHEN 7 THEN 'VIX' WHEN 8 THEN 'Gold' ELSE 'Oil WTI'
+    WHEN 0 THEN 'Apparel & Outerwear CPI' WHEN 1 THEN 'Footwear Price Index' WHEN 2 THEN 'Home & Kitchen Basket' WHEN 3 THEN 'Consumer Electronics CPI'
+    WHEN 4 THEN 'Markdown Depth Avg %' WHEN 5 THEN 'BNPL Default Benchmark %' WHEN 6 THEN 'CAD/USD Retail FX'
+    WHEN 7 THEN 'Omnichannel Promo Intensity' WHEN 8 THEN 'Cotton & Textile Spot' ELSE 'Parcel Freight Index'
   END AS indicator,
   ROUND(CASE MOD(n, 10)
-    WHEN 0 THEN 4500 + RAND() * 1000 WHEN 1 THEN 35000 + RAND() * 5000
-    WHEN 2 THEN 14000 + RAND() * 3000 WHEN 3 THEN 1900 + RAND() * 400
-    WHEN 4 THEN 3.5 + RAND() * 1.5 WHEN 5 THEN 4.5 + RAND() * 1
-    WHEN 6 THEN 1.05 + RAND() * 0.1 WHEN 7 THEN 12 + RAND() * 25
-    WHEN 8 THEN 1800 + RAND() * 500 ELSE 70 + RAND() * 30
+    WHEN 0 THEN 105 + RAND() * 18 WHEN 1 THEN 112 + RAND() * 15
+    WHEN 2 THEN 98 + RAND() * 22 WHEN 3 THEN 92 + RAND() * 14
+    WHEN 4 THEN 18.5 + RAND() * 12.0 WHEN 5 THEN 2.4 + RAND() * 1.8
+    WHEN 6 THEN 0.72 + RAND() * 0.06 WHEN 7 THEN 24 + RAND() * 18
+    WHEN 8 THEN 78 + RAND() * 25 ELSE 115 + RAND() * 30
   END, 2) AS value,
-  ROUND(-0.03 + RAND() * 0.06, 4) AS daily_change_pct
+  ROUND(-0.02 + RAND() * 0.04, 4) AS daily_change_pct
 FROM UNNEST(GENERATE_ARRAY(1, 5000)) AS n

@@ -48,7 +48,7 @@ def build_quality_rules():
     rules[("retail_bronze", "bronze_loyalty_accounts")] = [
         {"column": "account_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "account-id-not-null"},
         {"column": "customer_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "customer-id-not-null"},
-        {"column": "account_type", "setExpectation": {"values": ["CHECKING", "SAVINGS", "MONEY_MARKET", "CD", "IRA"]}, "dimension": "VALIDITY", "name": "account-type-valid"},
+        {"column": "account_type", "setExpectation": {"values": ["POINTS_REWARDS", "VIP_CASHBACK", "STORE_CREDIT", "GIFT_WALLET", "EMPLOYEE_PERKS"]}, "dimension": "VALIDITY", "name": "account-type-valid"},
         {"column": "current_balance", "rangeExpectation": {"minValue": "0"}, "dimension": "VALIDITY", "name": "inventory-and-order-total-non-negative"},
     ]
 
@@ -57,8 +57,8 @@ def build_quality_rules():
         {"column": "customer_id", "nonNullExpectation": {}, "dimension": "COMPLETENESS", "name": "customer-id-not-null"},
         {"column": "original_amount", "rangeExpectation": {"minValue": "0", "strictMinEnabled": True}, "dimension": "VALIDITY", "name": "amount-positive"},
         {"column": "interest_rate", "rangeExpectation": {"minValue": "0", "maxValue": "0.30"}, "dimension": "VALIDITY", "name": "rate-range"},
-        {"column": "return_risk_score_at_signup", "rangeExpectation": {"minValue": "300", "maxValue": "850"}, "dimension": "VALIDITY", "name": "return-risk-range"},
-        {"column": "risk_rating", "setExpectation": {"values": ["Pass", "Special Mention", "Substandard", "Doubtful", "Loss"]}, "dimension": "VALIDITY", "name": "risk-rating-valid"},
+        {"column": "return_risk_score_at_signup", "rangeExpectation": {"minValue": "1", "maxValue": "100"}, "dimension": "VALIDITY", "name": "return-risk-range"},
+        {"column": "risk_rating", "setExpectation": {"values": ["Low", "Watch", "Elevated", "High Risk"]}, "dimension": "VALIDITY", "name": "risk-rating-valid"},
     ]
 
     rules[("retail_silver", "silver_customers")] = [

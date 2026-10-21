@@ -3,24 +3,22 @@ SELECT
   CONCAT('RATE-', LPAD(CAST(n AS STRING), 8, '0')) AS rate_id,
   DATE_ADD('2023-01-01', INTERVAL CAST(FLOOR(n / 10.0) AS INT64) DAY) AS as_of_date,
   CASE MOD(n, 10)
-    WHEN 0 THEN 'Fed Funds Rate' WHEN 1 THEN 'SOFR' WHEN 2 THEN 'Prime Rate'
-    WHEN 3 THEN 'US Treasury 2Y' WHEN 4 THEN 'US Treasury 5Y' WHEN 5 THEN 'US Treasury 10Y'
-    WHEN 6 THEN 'US Treasury 30Y' WHEN 7 THEN 'SOFR 30-Day Avg' WHEN 8 THEN 'SOFR 90-Day Avg'
-    ELSE 'Discount Rate'
+    WHEN 0 THEN 'First Markdown — 20% Off' WHEN 1 THEN 'Second Markdown — 40% Off' WHEN 2 THEN 'Final Clearance — 65% Off'
+    WHEN 3 THEN 'End-of-Season Apparel Curve' WHEN 4 THEN 'Holiday Doorbuster Promo' WHEN 5 THEN 'VIP Early Access Discount'
+    WHEN 6 THEN 'Outlet Transfer Markdown' WHEN 7 THEN 'Slow-Mover 30-Day Markdown' WHEN 8 THEN 'Overstock 60-Day Markdown'
+    ELSE 'Damaged Box / Open-Item Discount'
   END AS rate_name,
   CASE MOD(n, 10)
-    WHEN 0 THEN 'Overnight' WHEN 1 THEN 'Overnight' WHEN 2 THEN 'Overnight'
-    WHEN 3 THEN '2Y' WHEN 4 THEN '5Y' WHEN 5 THEN '10Y'
-    WHEN 6 THEN '30Y' WHEN 7 THEN '30D' WHEN 8 THEN '90D'
-    ELSE 'Overnight'
+    WHEN 0 THEN '14D' WHEN 1 THEN '30D' WHEN 2 THEN '60D'
+    WHEN 3 THEN '90D' WHEN 4 THEN '7D' WHEN 5 THEN '14D'
+    WHEN 6 THEN '120D' WHEN 7 THEN '30D' WHEN 8 THEN '60D'
+    ELSE 'Immediate'
   END AS tenor,
-  ROUND(0.01 + RAND() * 0.06, 6) AS rate_value,
-  ROUND(-0.005 + RAND() * 0.01, 6) AS daily_change,
-  CASE MOD(n, 10)
-    WHEN 0 THEN 'FTC / California Privacy Protection Agency' WHEN 1 THEN 'NY Fed' WHEN 2 THEN 'WSJ'
-    WHEN 3 THEN 'US Treasury' WHEN 4 THEN 'US Treasury' WHEN 5 THEN 'US Treasury'
-    WHEN 6 THEN 'US Treasury' WHEN 7 THEN 'NY Fed' WHEN 8 THEN 'NY Fed'
-    ELSE 'FTC / California Privacy Protection Agency'
+  ROUND(0.10 + RAND() * 0.55, 4) AS rate_value,
+  ROUND(-0.02 + RAND() * 0.04, 4) AS daily_change,
+  CASE MOD(n, 4)
+    WHEN 0 THEN 'Northwind Pricing Engine' WHEN 1 THEN 'Merchandising Promo Desk' WHEN 2 THEN 'Clearance Optimization Model'
+    ELSE 'Omnichannel Dynamic Pricing'
   END AS source,
   TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,
   'HELIOS' AS source_system

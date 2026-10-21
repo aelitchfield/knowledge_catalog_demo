@@ -1,22 +1,22 @@
 CREATE OR REPLACE TABLE `${project_id}.retail_reference.ref_product_catalog` AS
-SELECT 'POINTS_REWARDS' AS product_code, 'Northwind Points Rewards' AS product_name, 'Loyalty Credit' AS category, 'Retail' AS division UNION ALL
-SELECT 'VIP_CASHBACK', 'VIP Cashback Tier', 'Loyalty Credit', 'Retail' UNION ALL
-SELECT 'STORE_CREDIT', 'Omnichannel Store Credit', 'Loyalty Credit', 'Retail' UNION ALL
-SELECT 'GIFT_WALLET', 'Certificate of Loyalty Credit', 'Loyalty Credit', 'Retail' UNION ALL
-SELECT 'EMPLOYEE_PERKS', 'Individual Retirement Account', 'Loyalty Credit', 'Retail' UNION ALL
-SELECT 'EXTENDED_FINANCING', 'Residential Extended Financing', 'BNPL Plan', 'Lending' UNION ALL
-SELECT 'AUTO', 'Auto BNPL Plan', 'BNPL Plan', 'Lending' UNION ALL
-SELECT 'PERSONAL', 'Personal BNPL Plan', 'BNPL Plan', 'Lending' UNION ALL
-SELECT 'HELOC', 'Home Equity Line of Credit', 'BNPL Plan', 'Lending' UNION ALL
-SELECT 'COMMERCIAL', 'Commercial BNPL Plan', 'BNPL Plan', 'Commercial' UNION ALL
-SELECT 'SBA', 'SBA BNPL Plan', 'BNPL Plan', 'Commercial' UNION ALL
-SELECT 'VISA_PLATINUM', 'Visa Platinum Card', 'Card', 'Cards' UNION ALL
-SELECT 'MC_GOLD', 'Mastercard Gold', 'Card', 'Cards' UNION ALL
-SELECT 'VISA_SIGNATURE', 'Visa Signature Card', 'Card', 'Cards' UNION ALL
-SELECT 'MC_WORLD', 'Mastercard World', 'Card', 'Cards' UNION ALL
-SELECT 'VISA_CLASSIC', 'Visa Classic Card', 'Card', 'Cards' UNION ALL
-SELECT 'VIP_CLIENTELING', 'VIP Clienteling Account', 'Investment', 'Omnichannel Loyalty' UNION ALL
-SELECT 'IRA_WM', 'IRA - Omnichannel Loyalty Managed', 'Investment', 'Omnichannel Loyalty' UNION ALL
-SELECT 'ROTH_IRA', 'Roth IRA', 'Investment', 'Omnichannel Loyalty' UNION ALL
-SELECT '401K', '401(k) Plan', 'Investment', 'Omnichannel Loyalty' UNION ALL
-SELECT 'TRUST', 'Trust Account', 'Investment', 'Omnichannel Loyalty'
+SELECT 'POINTS_REWARDS' AS product_code, 'Northwind Points Rewards' AS product_name, 'Loyalty Tier' AS category, 'Customer Loyalty' AS division UNION ALL
+SELECT 'VIP_CASHBACK', 'VIP Cashback Tier', 'Loyalty Tier', 'Customer Loyalty' UNION ALL
+SELECT 'STORE_CREDIT', 'Omnichannel Store Credit Wallet', 'Loyalty Tier', 'Customer Loyalty' UNION ALL
+SELECT 'GIFT_WALLET', 'Digital Gift Card & eWallet', 'Loyalty Tier', 'Customer Loyalty' UNION ALL
+SELECT 'EMPLOYEE_PERKS', 'Associate & Family Perks Tier', 'Loyalty Tier', 'Customer Loyalty' UNION ALL
+SELECT 'PAY_IN_4', 'Pay-in-4 Biweekly Zero-APR Plan', 'BNPL Plan', 'Checkout Financing' UNION ALL
+SELECT 'MONTHLY_3M', '3-Month Express Installment Plan', 'BNPL Plan', 'Checkout Financing' UNION ALL
+SELECT 'MONTHLY_6M', '6-Month Standard Installment Plan', 'BNPL Plan', 'Checkout Financing' UNION ALL
+SELECT 'SEASONAL_PROMO_12M', '12-Month Holiday Promotional Plan', 'BNPL Plan', 'Checkout Financing' UNION ALL
+SELECT 'APPLIANCE_FINANCING_18M', '18-Month Home & Appliance Financing', 'BNPL Plan', 'Checkout Financing' UNION ALL
+SELECT 'VIP_FLEX_PAY', 'VIP Insider Flexible Pay Plan', 'BNPL Plan', 'Checkout Financing' UNION ALL
+SELECT 'NORTHWIND_REWARDS_PLCC', 'Northwind Rewards Store Card (PLCC)', 'Store Card', 'Payment Tenders' UNION ALL
+SELECT 'NORTHWIND_VISA_SIGNATURE', 'Northwind Co-Brand Visa Signature', 'Store Card', 'Payment Tenders' UNION ALL
+SELECT 'VIP_INSIDER_CHARGE', 'VIP Insider Charge Card', 'Store Card', 'Payment Tenders' UNION ALL
+SELECT 'NORTHWIND_MASTERCARD', 'Northwind World Mastercard', 'Store Card', 'Payment Tenders' UNION ALL
+SELECT 'STORE_REWARDS_BASIC', 'Northwind Basic Store Card', 'Store Card', 'Payment Tenders' UNION ALL
+SELECT 'FLAGSHIP_STORE', 'Flagship Store Assortment', 'Merchandising Channel', 'Merchandising' UNION ALL
+SELECT 'OMNICHANNEL', 'Omnichannel Core Assortment', 'Merchandising Channel', 'Merchandising' UNION ALL
+SELECT 'ECOMMERCE_ONLY', 'Digital-First E-Commerce Assortment', 'Merchandising Channel', 'Merchandising' UNION ALL
+SELECT 'OUTLET', 'Northwind Rack & Outlet Assortment', 'Merchandising Channel', 'Merchandising' UNION ALL
+SELECT 'VIP_CLIENTELING', 'VIP Clienteling Capsule Assortment', 'Merchandising Channel', 'Merchandising'

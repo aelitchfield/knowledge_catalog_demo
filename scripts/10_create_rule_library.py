@@ -87,10 +87,10 @@ TEMPLATES = [
     },
     {
         "id": "loyalty-return-risk-score-range",
-        "display_name": "[Retail] Loyalty Tier & Return-Risk Score Range (300-850)",
-        "description": "[Retail] Validates shopper loyalty return-risk score is between 300 and 850.",
+        "display_name": "[Retail] Loyalty Tier & Return-Risk Score Range (1-100)",
+        "description": "[Retail] Validates shopper loyalty return-risk score is between 1 and 100.",
         "dimension": "VALIDITY",
-        "sql": r"SELECT * FROM ${data()} WHERE CAST(${column()} AS INT64) < 300 OR CAST(${column()} AS INT64) > 850",
+        "sql": r"SELECT * FROM ${data()} WHERE CAST(${column()} AS INT64) < 1 OR CAST(${column()} AS INT64) > 100",
         "params": {},
         "capabilities": ["THRESHOLD", "IGNORE_NULL"],
     },

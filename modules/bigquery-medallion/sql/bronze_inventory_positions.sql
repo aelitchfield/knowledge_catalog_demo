@@ -3,23 +3,22 @@ SELECT
   CONCAT('HLD-', LPAD(CAST(n AS STRING), 9, '0')) AS holding_id,
   CONCAT('PORT-', LPAD(CAST(CAST(FLOOR(RAND() * 15000) + 1 AS INT64) AS STRING), 8, '0')) AS assortment_id,
   CONCAT('SEC-', LPAD(CAST(CAST(FLOOR(RAND() * 5000) + 1 AS INT64) AS STRING), 6, '0')) AS security_id,
-  ROUND(1 + RAND() * 10000, 4) AS quantity,
-  ROUND(1 + RAND() * 5000, 2) AS market_price,
-  ROUND((1 + RAND() * 10000) * (1 + RAND() * 5000), 2) AS market_value,
-  ROUND((1 + RAND() * 10000) * (0.5 + RAND() * 4000), 2) AS cost_basis,
-  ROUND(-5000 + RAND() * 50000, 2) AS unrealized_gain_loss,
+  ROUND(10 + RAND() * 450, 0) AS quantity,
+  ROUND(14 + RAND() * 260, 2) AS market_price,
+  ROUND((10 + RAND() * 450) * (14 + RAND() * 260), 2) AS market_value,
+  ROUND((10 + RAND() * 450) * (8 + RAND() * 165), 2) AS cost_basis,
+  ROUND(-4500 + RAND() * 14000, 2) AS unrealized_gain_loss,
   CASE MOD(n, 8)
-    WHEN 0 THEN 'US Large Cap Equity' WHEN 1 THEN 'US Small Cap Equity' WHEN 2 THEN 'International Equity'
-    WHEN 3 THEN 'Hardlines' WHEN 4 THEN 'Outdoor & Activewear' WHEN 5 THEN 'Home Furnishings'
-    WHEN 6 THEN 'Alternatives' ELSE 'Cash & Equivalents'
+    WHEN 0 THEN 'Apparel & Outerwear' WHEN 1 THEN 'Footwear' WHEN 2 THEN 'Home & Kitchen'
+    WHEN 3 THEN 'Consumer Electronics' WHEN 4 THEN 'Outdoor & Activewear' WHEN 5 THEN 'Home Furnishings'
+    WHEN 6 THEN 'Accessories & Jewelry' ELSE 'Beauty & Personal Care'
   END AS asset_class,
-  CASE MOD(n, 11)
-    WHEN 0 THEN 'Technology' WHEN 1 THEN 'Healthcare' WHEN 2 THEN 'Financial Services'
-    WHEN 3 THEN 'Consumer Discretionary' WHEN 4 THEN 'Industrials' WHEN 5 THEN 'Energy'
-    WHEN 6 THEN 'Utilities' WHEN 7 THEN 'Home Furnishings' WHEN 8 THEN 'Materials'
-    WHEN 9 THEN 'Communication Services' ELSE 'Consumer Staples'
+  CASE MOD(n, 8)
+    WHEN 0 THEN 'Womens & Mens Apparel' WHEN 1 THEN 'Athletic Footwear' WHEN 2 THEN 'Culinary & Tabletop'
+    WHEN 3 THEN 'Smart Home & Audio' WHEN 4 THEN 'Outdoor Recreation' WHEN 5 THEN 'Living & Bedroom'
+    WHEN 6 THEN 'Fashion Accessories' ELSE 'Clean Beauty & Skincare'
   END AS sector,
-  DATE_ADD('2024-01-01', INTERVAL CAST(FLOOR(RAND() * 500) AS INT64) DAY) AS as_of_date,
+  DATE_SUB(CURRENT_DATE(), INTERVAL CAST(FLOOR(RAND() * 90) AS INT64) DAY) AS as_of_date,
   TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL CAST(FLOOR(RAND() * 500 * 24 * 60) AS INT64) MINUTE) AS created_at,
   'LUMEN' AS source_system
 FROM UNNEST(GENERATE_ARRAY(1, 50000)) AS n
