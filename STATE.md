@@ -40,12 +40,18 @@
     - `[Retail] retail-agent-scaled`: `1975967805526245376` (`retail-scaled-agent-id`)
     - `[Retail] retail-agent-kc`: `8060330902103785472` (`retail-kc-agent-id`)
   - Granted dataset access (`_nokc` datasets to basic & scaled; governed `retail_*` datasets + Dataplex/Lineage/MCP roles to KC; `WRITER` on `retail_agent_analytics` to all 3; `roles/datacatalog.categoryFineGrainedReader` on taxonomy `6328323030724665961` to all 3 per-agent `principal://` identities; `--condition=None` on project IAM bindings).
-  - Stored OAuth 2.0 Web Client ID in Secret Manager (`retail-oauth-client-id`) and deployed Cloud Run service `retail-kc-demo-ui-live` in `us-central1`:
-    - Primary URL: `https://retail-kc-demo-ui-live-esoohbbsma-uc.a.run.app`
-    - Regional URL: `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`
-- **Phase P6 (End-to-End Validation)**: COMPLETE & VERIFIED via `tools/verify_p6.py` (`logs/verify_p6.json`).
-  - Cloud Run UI (`/` HTTP 200 with Northwind Retail branding and 0 Meridian Bank hits; `/api/config` HTTP 200 with `live_mode: true`, `oauth_client_id` set, and all 3 agents active; `/static/static-responses.json` HTTP 200).
-  - All 3 Vertex AI Agent Engine agents responded with live tool calls (`basic`: `['run_sql']` on `gold_customer_360`; `scaled`: 6 `run_sql` calls across `_nokc` tables; `kc`: `['search_entries', 'lookup_context']` against Northwind Retail Business Glossary and `retail_gold.gold_gross_margin_analysis`).
+  - Stored OAuth 2.0 Web Client ID in Secret Manager (`retail-oauth-client-id`) and deployed Cloud Run service `retail-kc-demo-ui-live` in `us-central1` (revision `retail-kc-demo-ui-live-00002-fgn`):
+    - Canonical URL: `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`
+    - Regional Alias URL: `https://retail-kc-demo-ui-live-esoohbbsma-uc.a.run.app`
+    - Verified `allUsers` bound to `roles/run.invoker`.
+    - Fixed `DATASET_MAP`, `_RETAIL_DATASETS`, and `_DATASET_TO_TIER` in `website-live/app.py` (`retail_staging`, `retail_snapshots`, `retail_audit` replacing nonexistent `retail_supplementary`), bringing `/api/config` `all_table_names` to **128/128** (`40` bronze, `40` silver, `20` gold, `28` ref/staging/snapshots/audit).
+- **Phase P6 (End-to-End Validation & Live 15×3 Tier Matrix)**: COMPLETE & VERIFIED via `tools/validate.sh`, `tools/verify_p6.py` (`logs/verify_p6.json`), and `tools/run_p6_tier_matrix.py` (`logs/p6_tier_matrix.json`).
+  - Canonical Cloud Run URL (`https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`) updated across `DEMO_SCRIPT.md`, `demo/demo_script.md`, `README.md`, `website-live/deploy.sh`, `tools/verify_p6.py`, and `tools/validate.sh`.
+  - `clean_up.sh` syntax and retail resource safety verified (`bash -n clean_up.sh`).
+  - Live 45-Query Tier Matrix (`15 questions × 3 agents`, zero prompt tuning):
+    - **Tier 1 (Q01–Q05)**: Basic `5/5 PASS`; Scaled `4/5 PASS` (failed Q04 after 17 SQL queries across 14 tables due to "returns" vs "product returns" ambiguity); KC `5/5 PASS`.
+    - **Tier 2 (Q06–Q10)**: Basic `0/5 PASS` (lacks Silver/Bronze/Supplementary tables and governance metadata); Scaled `0/5 PASS` (wrong table on Q07, false DQ trust on Q08/Q09, zero glossary/PAIR/CWCR/PCI-DSS context on Q06/Q10); KC `3/5 PASS` (passed Q06, Q08, Q10 with full glossary/DQ/lineage metadata; partial/failed Q07 by querying `silver_inventory_positions` instead of `gold_markdown_risk_var`; failed Q09 because `search_entries` returned custom source entry `custom:lumen-prod.DIGITAL_COMMERCE.PRODUCT_SKUS` first and KC tried querying it in BigQuery).
+    - **Tier 3 (Q11–Q15)**: Basic `0/5 PASS` (lacks cross-domain tables, lineage, and PII policy tags); Scaled `0/5 PASS` (listed `_nokc` bronze tables as upstream systems on Q11, missed loyalty domain on Q12, zero SIV/EFR/HCRL governance on Q13, refused stress test on Q14, false join key `account_id = customer_id` across 15 SQLs on Q15); KC `3/5 PASS` (passed Q11 with LUMEN/ORION lineage, Q12 omnichannel POS+Loyalty, Q15 cross-sell with PII/PCI-DSS/CCPA governance; failed Q13 when 4-table LEFT JOIN returned 0 rows and stream ended without text summary; failed Q14 due to querying custom source entry `FINANCE_RISK.GL_ENTRIES` in BigQuery).
 
 ## Summarized Files (Do NOT Re-Read)
 - `deploy-bq.sh`, `deploy-bq-nokc.sh`, `deploy-full.sh`, `post_deploy.sh`, `clean_up.sh`: Updated with mTLS client-cert disable exports (`GOOGLE_API_USE_CLIENT_CERTIFICATE=false`, `CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false`), `RETAIL_TAXONOMY_DISPLAY_NAME="Retail Demo Sensitivity Taxonomy (alitch)"`, `[Retail] ` dataset descriptions, and 4 required dataset labels (`use-case=retail`, `demo=retail-knowledge-catalog`, `owner=alitch`, `env=demo`).

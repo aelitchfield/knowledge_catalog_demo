@@ -50,16 +50,22 @@ Snowflake. Knowledge Catalog told it where to look — across clouds."
 
 ## Before the Demo
 
+### Live Demo URL (Canonical)
+
+- **Web App (Canonical URL):** `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`
+- **Regional Alias URL:** `https://retail-kc-demo-ui-live-esoohbbsma-uc.a.run.app`
+
 ### Check your deployment
 
 ```bash
-# Verify all agents are deployed
-curl -s https://YOUR-CLOUD-RUN-URL/api/config | python3 -m json.tool
+# Verify all agents and 128 tables are deployed
+curl -s https://retail-kc-demo-ui-live-98236392654.us-central1.run.app/api/config | python3 -m json.tool
 ```
 
 You should see:
 - `"live_mode": true` — all 3 agents connected
 - `"agents": {"basic": true, "scaled": true, "kc": true}`
+- `"all_table_names"` containing all **128** retail tables (`40` bronze, `40` silver, `20` gold, `28` reference/views/staging/snapshots/audit)
 
 ### Check Snowflake (optional)
 

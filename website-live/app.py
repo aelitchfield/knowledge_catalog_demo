@@ -51,11 +51,13 @@ _session_times = {}
 
 _RETAIL_DATASETS = {
     'retail_gold', 'retail_silver', 'retail_bronze',
-    'retail_reference', 'retail_supplementary', 'retail_dashboards',
+    'retail_reference', 'retail_staging', 'retail_snapshots',
+    'retail_audit', 'retail_dashboards',
 }
 _DATASET_TO_TIER = {
     'retail_gold': 'gold', 'retail_silver': 'silver', 'retail_bronze': 'bronze',
-    'retail_reference': 'ref', 'retail_supplementary': 'ref', 'retail_dashboards': 'ref',
+    'retail_reference': 'ref', 'retail_staging': 'ref', 'retail_snapshots': 'ref',
+    'retail_audit': 'ref', 'retail_dashboards': 'ref',
 }
 
 BASIC_TABLES = [
@@ -345,8 +347,8 @@ def reset_session():
 
 DATASET_MAP = {
     'gold_': 'retail_gold', 'silver_': 'retail_silver', 'bronze_': 'retail_bronze',
-    'ref_': 'retail_reference', 'staging_': 'retail_supplementary',
-    'snapshot_': 'retail_supplementary', 'audit_': 'retail_supplementary',
+    'ref_': 'retail_reference', 'staging_': 'retail_staging',
+    'snapshot_': 'retail_snapshots', 'audit_': 'retail_audit',
     'vw_': 'retail_dashboards',
 }
 

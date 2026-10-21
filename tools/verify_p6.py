@@ -20,8 +20,8 @@ import urllib.request
 PROJECT_ID = "alitch-ca-demo"
 PROJECT_NUMBER = "98236392654"
 REGION = "us-central1"
-CLOUD_RUN_URL = "https://retail-kc-demo-ui-live-esoohbbsma-uc.a.run.app"
-CLOUD_RUN_ALT_URL = "https://retail-kc-demo-ui-live-98236392654.us-central1.run.app"
+CLOUD_RUN_URL = "https://retail-kc-demo-ui-live-98236392654.us-central1.run.app"
+CLOUD_RUN_ALT_URL = "https://retail-kc-demo-ui-live-esoohbbsma-uc.a.run.app"
 
 AGENTS = {
     "basic": {

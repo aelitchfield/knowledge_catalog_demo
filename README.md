@@ -323,7 +323,7 @@ deploy without an OAuth client ID configured, and the application returns
 3. Go back to **Credentials** and click **+ Create Credentials → OAuth client ID**.
    - Application type: **Web application**
    - Name: `Retail KC Demo` (or any name you prefer)
-   - **Authorized JavaScript origins**: Add the Cloud Run URL from your deployment output (e.g. `https://retail-kc-demo-ui-live-xxxxx-uc.a.run.app`). If running locally, also add `http://localhost:8080`.
+   - **Authorized JavaScript origins**: Add the Cloud Run URL from your deployment output (e.g. `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`). If running locally, also add `http://localhost:8080`.
    - Leave **Authorized redirect URIs** empty — the app uses Google Identity Services (popup/one-tap), not a server-side redirect flow.
    - Click **Create**.
 
