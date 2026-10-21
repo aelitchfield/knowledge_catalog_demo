@@ -181,7 +181,7 @@ def _get_or_create_session(agent_id, user_id):
         resp = _get_http_session().post(
             url,
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json={"class_method": "create_session", "input": {"user_id": user_id}},
+            json={"class_method": "async_create_session", "input": {"user_id": user_id}},
             timeout=30,
         )
         logger.info("Session response: status=%d body=%s", resp.status_code, resp.text[:500])
@@ -762,16 +762,20 @@ try:
                 resp = _get_http_session().post(
                     f"{_ae_url(agent_id)}:streamQuery",
                     headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                    json={"input": {
-                        "message": question,
-                        "user_id": user_id,
-                        "session_id": session_id,
-                    }},
+                    json={
+                        "class_method": "async_stream_query",
+                        "input": {
+                            "message": question,
+                            "user_id": user_id,
+                            "session_id": session_id,
+                        },
+                    },
                     stream=True,
                     timeout=300,
                 )
 
                 if resp.status_code != 200:
+                    logger.error("streamQuery failed: agent=%s status=%d body=%s", agent_type, resp.status_code, resp.text[:500])
                     ws.send(json.dumps({"type": "error", "message": f"Agent returned {resp.status_code}"}))
                     continue
 

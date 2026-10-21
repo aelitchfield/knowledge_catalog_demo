@@ -117,7 +117,7 @@ def query_agent(agent_id: str, question: str, project_number: str,
         resp = http_requests.post(
             f"{url_base}:query",
             headers=headers,
-            json={"class_method": "create_session", "input": {"user_id": "eval_runner"}},
+            json={"class_method": "async_create_session", "input": {"user_id": "eval_runner"}},
             timeout=30,
         )
         if resp.status_code != 200:
@@ -132,7 +132,10 @@ def query_agent(agent_id: str, question: str, project_number: str,
         resp = http_requests.post(
             f"{url_base}:streamQuery",
             headers=headers,
-            json={"input": {"message": question, "user_id": "eval_runner", "session_id": session_id}},
+            json={
+                "class_method": "async_stream_query",
+                "input": {"message": question, "user_id": "eval_runner", "session_id": session_id},
+            },
             stream=True, timeout=120,
         )
         if resp.status_code != 200:
