@@ -77,7 +77,7 @@ def main():
     custom_aspects = [
         ("retail-data-classification", "[Retail] Data Classification", "[Retail] Retail data sensitivity, PII, PCI-DSS, and marketing consent classification", [
             {"name": "classification_level", "type": "enum", "index": 1, "constraints": {"required": True}, "annotations": {"displayName": "Classification Level"},
-             "enumValues": [{"name": "Public", "index": 1}, {"name": "Internal", "index": 2}, {"name": "Confidential", "index": 3}, {"name": "Restricted", "index": 4}, {"name": "Highly Restricted", "index": 5}, {"name": "Supplier-Confidential", "index": 6}]},
+             "enumValues": [{"name": "Public", "index": 1}, {"name": "Internal", "index": 2}, {"name": "Confidential", "index": 3}, {"name": "Restricted", "index": 4}, {"name": "Highly Restricted", "index": 5}, {"name": "Supplier-Confidential", "index": 6}, {"name": "Third-Party Licensed", "index": 7}]},
             {"name": "pii_category", "type": "enum", "index": 2, "annotations": {"displayName": "PII & Data Category"},
              "enumValues": [{"name": "Direct Identifier", "index": 1}, {"name": "Quasi Identifier", "index": 2}, {"name": "Financial Data", "index": 3}, {"name": "Account Data", "index": 4}, {"name": "Not PII", "index": 5}, {"name": "PII", "index": 6}, {"name": "Payment Card Data", "index": 7}, {"name": "Supplier-Confidential", "index": 8}, {"name": "Marketing Consent", "index": 9}]},
             {"name": "requires_encryption", "type": "bool", "index": 3, "annotations": {"displayName": "Requires Encryption"}},
@@ -101,17 +101,19 @@ def main():
              "enumValues": [{"name": "Annual", "index": 1}, {"name": "Semi-Annual", "index": 2}, {"name": "Quarterly", "index": 3}, {"name": "Continuous", "index": 4}]},
             {"name": "compliance_notes", "type": "string", "index": 5, "annotations": {"displayName": "Compliance Notes"}},
         ]),
-        ("retail-data-lineage-metadata", "[Retail] Data Lineage Metadata", "[Retail] Source system (ORION, LUMEN, HELIOS) and omnichannel data flow metadata", [
+        ("retail-data-lineage-metadata", "[Retail] Data Lineage Metadata", "[Retail] Source system (ORION, LUMEN, HELIOS, NEXUS) and omnichannel data flow metadata", [
             {"name": "source_system", "type": "string", "index": 1, "constraints": {"required": True}, "annotations": {"displayName": "Source System"}},
             {"name": "ingestion_method", "type": "enum", "index": 2, "annotations": {"displayName": "Ingestion Method"},
              "enumValues": [{"name": "IBM CDC Replication", "index": 1}, {"name": "Salesforce Extract API", "index": 2}, {"name": "SAP SLT Replication", "index": 3}, {"name": "Batch File Extract", "index": 4}, {"name": "Database Replication", "index": 5}, {"name": "API Integration", "index": 6}, {"name": "Commerce Export API", "index": 7}]},
             {"name": "refresh_frequency", "type": "enum", "index": 3, "annotations": {"displayName": "Refresh Frequency"},
              "enumValues": [{"name": "Real-time", "index": 1}, {"name": "Intraday", "index": 2}, {"name": "End-of-Day", "index": 3}, {"name": "Daily", "index": 4}, {"name": "Weekly", "index": 5}, {"name": "Monthly", "index": 6}]},
             {"name": "data_flow_path", "type": "string", "index": 4, "annotations": {"displayName": "Data Flow Path"}},
+            {"name": "cloud_platform", "type": "string", "index": 5, "annotations": {"displayName": "Cloud Platform"}},
+            {"name": "data_residency", "type": "string", "index": 6, "annotations": {"displayName": "Data Residency"}},
         ]),
         ("retail-access-control", "[Retail] Access Control Policy", "[Retail] Role-based access control for store ops, merchandising, and privacy teams", [
             {"name": "access_level", "type": "enum", "index": 1, "constraints": {"required": True}, "annotations": {"displayName": "Access Level"},
-             "enumValues": [{"name": "Public", "index": 1}, {"name": "Internal", "index": 2}, {"name": "Restricted", "index": 3}, {"name": "Confidential", "index": 4}, {"name": "Highly Restricted", "index": 5}, {"name": "Supplier-Confidential", "index": 6}]},
+             "enumValues": [{"name": "Public", "index": 1}, {"name": "Internal", "index": 2}, {"name": "Restricted", "index": 3}, {"name": "Confidential", "index": 4}, {"name": "Highly Restricted", "index": 5}, {"name": "Supplier-Confidential", "index": 6}, {"name": "External Vendor Agreement", "index": 7}]},
             {"name": "authorized_roles", "type": "string", "index": 2, "constraints": {"required": True}, "annotations": {"displayName": "Authorized Roles"}},
             {"name": "requires_mfa", "type": "bool", "index": 3, "annotations": {"displayName": "Requires MFA"}},
             {"name": "need_to_know_applies", "type": "bool", "index": 4, "annotations": {"displayName": "Need-to-Know Applies"}},

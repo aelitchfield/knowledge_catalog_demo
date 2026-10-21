@@ -221,8 +221,8 @@ if SNOWFLAKE_ENABLED:
         """Execute a SQL query against Snowflake and return results.
 
         Use this when Knowledge Catalog search reveals data in Snowflake
-        (NEXUS market data). Use fully qualified names: DATABASE.SCHEMA.TABLE.
-        For example: NEXUS_MARKET_DATA.PRODUCT_SKUS.SECURITY_PRICES
+        (NEXUS Syndicated Retail Market Intelligence). Use fully qualified names: DATABASE.SCHEMA.TABLE.
+        For example: NEXUS_MARKET_DATA.SYNDICATED_INTEL.nexus_competitor_prices
         """
         try:
             return _run_sf_query(sql)
@@ -237,40 +237,33 @@ if SNOWFLAKE_ENABLED:
 
 ## MANDATORY: Cross-Platform Discovery (Snowflake / NEXUS)
 
-You have access to Snowflake for querying external market data from the NEXUS data provider.
+You have access to Snowflake for querying external syndicated retail market intelligence from NEXUS.
 This CHANGES step 1 (DISCOVER) above — you MUST search both BigQuery AND Snowflake.
 
 **Step 1 — REVISED**: For EVERY question, run your normal Knowledge Catalog searches. Then,
-if the question touches ANY of these topics, you MUST run an additional search with "snowflake"
-as the first keyword:
+if the question touches ANY of these topics, you MUST run an additional search with "nexus" or "snowflake"
+as a keyword:
 
-  Trigger topics: rates, markdown rate, promotional discount, category benchmark, prices, product_skus,
-  FX, forex, supplier terms, demand volatility, retail indicators, competitor pricing, index, fundamentals,
-  corporate actions, multi-cloud, cross-platform
+  Trigger topics: competitor pricing, category market share, consumer panel, regional demand index,
+  promo calendar benchmark, basket affinity, syndicated market intelligence, external market data,
+  multi-cloud, cross-platform, cross-cloud
 
-  Examples: search_entries("snowflake competitor pricing"), search_entries("snowflake category benchmark")
+  Examples: search_entries("nexus competitor prices"), search_entries("nexus category market share")
 
 Do NOT skip this step even if BigQuery already returned relevant-looking tables. NEXUS may have
 complementary or more current data. A multi-cloud or cross-platform question ALWAYS requires
 searching both platforms.
 
-When search results include Snowflake entries (entry type `snowflake-table`), use
+When search results include Snowflake entries (entry type `retail-snowflake-table`), use
 `query_snowflake` instead of `run_sql`. Use fully qualified Snowflake table names:
-`NEXUS_MARKET_DATA.SCHEMA.TABLE` (e.g., `NEXUS_MARKET_DATA.PRODUCT_SKUS.SECURITY_PRICES`).
+`NEXUS_MARKET_DATA.SYNDICATED_INTEL.TABLE` (e.g., `NEXUS_MARKET_DATA.SYNDICATED_INTEL.nexus_competitor_prices`).
 
 For cross-platform questions, query BOTH BigQuery AND Snowflake, then combine and compare the
-results in your analysis. For example, assortment holdings live in BigQuery while current
-security prices live in Snowflake. When both platforms have data for the same topic (e.g.,
-markdown rates), present both and note any differences.
+results in your analysis.
 
-When querying Snowflake for pricing data, prefer broad filters (date range, asset class) over
-large IN-lists of identifiers. If a BigQuery result returns more than ~20 product_skus, query
-Snowflake for the full pricing universe for that date and match in your analysis rather than
-passing all GTINs into a single WHERE clause.
-
-NEXUS provides: security prices, fundamentals, corporate actions, benchmark returns,
-index constituents, markdown rate curves and promotional elasticity, economic indicators,
-FX spot rates, supplier margin spreads, and volatility surfaces.
+NEXUS provides 6 syndicated retail tables in `NEXUS_MARKET_DATA.SYNDICATED_INTEL`:
+`nexus_competitor_prices`, `nexus_category_market_share`, `nexus_consumer_panel`,
+`nexus_regional_demand_index`, `nexus_promo_calendar_benchmark`, and `nexus_basket_affinity`.
 """
 
 _kc_tools = [kc_toolset, run_sql]

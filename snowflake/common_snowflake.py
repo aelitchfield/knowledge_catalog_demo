@@ -27,143 +27,66 @@ logger = logging.getLogger(__name__)
 
 DATABASE = "NEXUS_MARKET_DATA"
 WAREHOUSE = "NEXUS_WH"
+ENTRY_GROUP_ID = "retail-nexus-market-intel"
 
-SCHEMAS = ["PRODUCT_SKUS", "INDICES", "ECONOMICS", "RISK_ANALYTICS"]
+SCHEMAS = ["SYNDICATED_INTEL"]
 
 TABLES: Dict[str, List[Tuple[str, str]]] = {
-    "PRODUCT_SKUS": [
+    "SYNDICATED_INTEL": [
         (
-            "SECURITY_PRICES",
-            "Daily closing prices by GTIN/SKU from NEXUS market data feed",
+            "nexus_competitor_prices",
+            "Daily syndicated competitor retail & promotional prices by GTIN-13, SKU, and competitor chain",
         ),
         (
-            "SECURITY_FUNDAMENTALS",
-            "Fundamental metrics: P/E, EPS, market cap, dividend yield",
-        ),
-        ("CORPORATE_ACTIONS", "Corporate actions: splits, dividends, mergers"),
-    ],
-    "INDICES": [
-        (
-            "BENCHMARK_RETURNS",
-            "Daily and monthly index returns for major benchmarks",
+            "nexus_category_market_share",
+            "Monthly syndicated US retail category dollar share, peer gross margin benchmarks, and YoY growth",
         ),
         (
-            "INDEX_CONSTITUENTS",
-            "Constituent product_skus for each benchmark index",
-        ),
-    ],
-    "ECONOMICS": [
-        (
-            "INTEREST_RATE_CURVES",
-            "SOFR, Fed Funds Effective, Treasury yields (2Y/5Y/10Y/30Y)",
+            "nexus_consumer_panel",
+            "Anonymized household consumer panel tracking cross-retailer wallet share and trip frequency",
         ),
         (
-            "ECONOMIC_INDICATORS",
-            "GDP, CPI, unemployment rate, housing starts",
-        ),
-        ("FX_SPOT_RATES", "Spot FX rates for major currency pairs"),
-    ],
-    "RISK_ANALYTICS": [
-        (
-            "CREDIT_SPREADS",
-            "Corporate bond spreads by credit rating and sector",
+            "nexus_regional_demand_index",
+            "Weekly syndicated regional retail demand velocity, foot-traffic, and weather elasticity by DMA",
         ),
         (
-            "VOLATILITY_SURFACES",
-            "Implied volatility surfaces for options pricing",
+            "nexus_promo_calendar_benchmark",
+            "Syndicated seasonal promotional depth, campaign duration, unit lift, and margin erosion benchmarks",
+        ),
+        (
+            "nexus_basket_affinity",
+            "Syndicated cross-category basket co-occurrence, attach rate, and affinity lift metrics",
         ),
     ],
 }
 
 HORIZON_TAGS: Dict[str, Dict[str, List[str]]] = {
     "DATA_CLASSIFICATION": {
-        "allowed_values": ["PUBLIC", "INTERNAL", "CONFIDENTIAL"],
+        "allowed_values": ["THIRD_PARTY_LICENSED", "INTERNAL", "PUBLIC"],
     },
-    "DATA_DOMAIN": {
-        "allowed_values": ["MARKET_DATA", "RISK", "ECONOMICS"],
+    "ACCESS_GOVERNANCE": {
+        "allowed_values": ["EXTERNAL_VENDOR_AGREEMENT"],
     },
-    "DATA_FRESHNESS": {
-        "allowed_values": ["REAL_TIME", "DAILY", "MONTHLY"],
+    "REGULATORY_COMPLIANCE": {
+        "allowed_values": ["VENDOR_DATA_LICENSE_NO_PII"],
     },
-    "PII_FLAG": {
-        "allowed_values": ["TRUE", "FALSE"],
+    "CLOUD_PLATFORM": {
+        "allowed_values": ["SNOWFLAKE"],
     },
-    "SOURCE_VENDOR": {
-        "allowed_values": ["NEXUS_DATA_SERVICES"],
+    "DATA_RESIDENCY": {
+        "allowed_values": ["EXTERNAL_NON_GCP"],
     },
 }
 
 TAG_ASSIGNMENTS: Dict[str, Dict[str, str]] = {
-    "SECURITY_PRICES": {
-        "DATA_CLASSIFICATION": "INTERNAL",
-        "DATA_DOMAIN": "MARKET_DATA",
-        "DATA_FRESHNESS": "DAILY",
-        "PII_FLAG": "FALSE",
-        "SOURCE_VENDOR": "NEXUS_DATA_SERVICES",
-    },
-    "SECURITY_FUNDAMENTALS": {
-        "DATA_CLASSIFICATION": "INTERNAL",
-        "DATA_DOMAIN": "MARKET_DATA",
-        "DATA_FRESHNESS": "DAILY",
-        "PII_FLAG": "FALSE",
-        "SOURCE_VENDOR": "NEXUS_DATA_SERVICES",
-    },
-    "CORPORATE_ACTIONS": {
-        "DATA_CLASSIFICATION": "PUBLIC",
-        "DATA_DOMAIN": "MARKET_DATA",
-        "DATA_FRESHNESS": "DAILY",
-        "PII_FLAG": "FALSE",
-        "SOURCE_VENDOR": "NEXUS_DATA_SERVICES",
-    },
-    "BENCHMARK_RETURNS": {
-        "DATA_CLASSIFICATION": "PUBLIC",
-        "DATA_DOMAIN": "MARKET_DATA",
-        "DATA_FRESHNESS": "DAILY",
-        "PII_FLAG": "FALSE",
-        "SOURCE_VENDOR": "NEXUS_DATA_SERVICES",
-    },
-    "INDEX_CONSTITUENTS": {
-        "DATA_CLASSIFICATION": "PUBLIC",
-        "DATA_DOMAIN": "MARKET_DATA",
-        "DATA_FRESHNESS": "MONTHLY",
-        "PII_FLAG": "FALSE",
-        "SOURCE_VENDOR": "NEXUS_DATA_SERVICES",
-    },
-    "INTEREST_RATE_CURVES": {
-        "DATA_CLASSIFICATION": "PUBLIC",
-        "DATA_DOMAIN": "ECONOMICS",
-        "DATA_FRESHNESS": "DAILY",
-        "PII_FLAG": "FALSE",
-        "SOURCE_VENDOR": "NEXUS_DATA_SERVICES",
-    },
-    "ECONOMIC_INDICATORS": {
-        "DATA_CLASSIFICATION": "PUBLIC",
-        "DATA_DOMAIN": "ECONOMICS",
-        "DATA_FRESHNESS": "MONTHLY",
-        "PII_FLAG": "FALSE",
-        "SOURCE_VENDOR": "NEXUS_DATA_SERVICES",
-    },
-    "FX_SPOT_RATES": {
-        "DATA_CLASSIFICATION": "INTERNAL",
-        "DATA_DOMAIN": "ECONOMICS",
-        "DATA_FRESHNESS": "DAILY",
-        "PII_FLAG": "FALSE",
-        "SOURCE_VENDOR": "NEXUS_DATA_SERVICES",
-    },
-    "CREDIT_SPREADS": {
-        "DATA_CLASSIFICATION": "CONFIDENTIAL",
-        "DATA_DOMAIN": "RISK",
-        "DATA_FRESHNESS": "DAILY",
-        "PII_FLAG": "FALSE",
-        "SOURCE_VENDOR": "NEXUS_DATA_SERVICES",
-    },
-    "VOLATILITY_SURFACES": {
-        "DATA_CLASSIFICATION": "CONFIDENTIAL",
-        "DATA_DOMAIN": "RISK",
-        "DATA_FRESHNESS": "DAILY",
-        "PII_FLAG": "FALSE",
-        "SOURCE_VENDOR": "NEXUS_DATA_SERVICES",
-    },
+    tbl: {
+        "DATA_CLASSIFICATION": "THIRD_PARTY_LICENSED",
+        "ACCESS_GOVERNANCE": "EXTERNAL_VENDOR_AGREEMENT",
+        "REGULATORY_COMPLIANCE": "VENDOR_DATA_LICENSE_NO_PII",
+        "CLOUD_PLATFORM": "SNOWFLAKE",
+        "DATA_RESIDENCY": "EXTERNAL_NON_GCP",
+    }
+    for tbl, _ in TABLES["SYNDICATED_INTEL"]
 }
 
 # Matches BQ formula: CONCAT('0085', LPAD(CAST(MOD(n * 7, 1000000000) AS STRING), 9, '0'))

@@ -7,7 +7,7 @@ if (typeof marked !== 'undefined') {
 let _DATASET_MAP = {};
 let _GLOSSARY_TERMS = {};
 let _GLOSSARY_ID = 'retail-northwind-glossary-us';
-const _TABLE_RE = /\b((?:gold|silver|bronze|ref|vw|staging|snapshot|audit)_[a-z0-9_]+)\b/g;
+const _TABLE_RE = /\b((?:gold|silver|bronze|ref|vw|staging|snapshot|audit|nexus)_[a-z0-9_]+)\b/g;
 let _projectNumber = '';
 let _snowflakeTables = new Set();
 let _snowflakeEnabled = false;
@@ -39,6 +39,11 @@ function _linkifyEntities(container, agentMode, projectId) {
     let modified = false;
 
     html = html.replace(_TABLE_RE, (match) => {
+      if (match.startsWith('nexus_')) {
+        const url = `https://console.cloud.google.com/dataplex/dp-entries/projects/${projectId}/locations/us/entryGroups/retail-nexus-market-intel/entries/${match}?project=${projectId}`;
+        modified = true;
+        return `<a href="${url}" target="_blank" rel="noopener" class="entity-link table-link">${match}</a>`;
+      }
       let ds = '';
       for (const [prefix, dataset] of Object.entries(_DATASET_MAP)) {
         if (match.startsWith(prefix)) { ds = dataset; break; }

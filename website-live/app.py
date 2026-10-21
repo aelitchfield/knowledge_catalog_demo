@@ -42,7 +42,7 @@ AGENT_IDS = {
 }
 
 OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID", "")
-ENVIRONMENT_LABEL = os.environ.get("ENVIRONMENT_LABEL", "")
+ENVIRONMENT_LABEL = os.environ.get("ENVIRONMENT_LABEL", "demo") or "demo"
 
 AE_BASE = f"https://{LOCATION}-aiplatform.googleapis.com/v1"
 _SESSION_TTL = 3600
@@ -198,7 +198,8 @@ def _get_or_create_session(agent_id, user_id):
 
 
 def _extract_tables(text):
-    return [t for t in ALL_TABLE_NAMES if t in text.lower()]
+    lower = text.lower()
+    return [t for t in (ALL_TABLE_NAMES + _SNOWFLAKE_TABLES) if t in lower]
 
 
 def _extract_glossary_terms(text):
@@ -308,7 +309,8 @@ def config():
         "oauth_client_id": OAUTH_CLIENT_ID,
         "live_mode": any(AGENT_IDS.values()),
         "agents": {k: bool(v) for k, v in AGENT_IDS.items()},
-        "snowflake_enabled": bool(os.environ.get("SNOWFLAKE_ACCOUNT")),
+        "snowflake_enabled": bool(_SNOWFLAKE_TABLES),
+        "snowflake_live": bool(os.environ.get("SNOWFLAKE_ACCOUNT")),
         "snowflake_tables": _SNOWFLAKE_TABLES,
         "environment": ENVIRONMENT_LABEL,
         "tables": _TABLES_BY_TIER,
@@ -359,45 +361,71 @@ GLOSSARY_ID = os.environ.get("GLOSSARY_ID", "retail-northwind-glossary-us")
 
 _SNOWFLAKE_TABLES = []
 _SNOWFLAKE_SCHEMA_MAP = {}
+_SNOWFLAKE_ENTRY_MAP = {}
+_NEXUS_ENTRY_GROUP = "retail-nexus-market-intel"
+_DEFAULT_NEXUS_TABLES = [
+    "nexus_competitor_prices",
+    "nexus_category_market_share",
+    "nexus_consumer_panel",
+    "nexus_regional_demand_index",
+    "nexus_promo_calendar_benchmark",
+    "nexus_basket_affinity",
+]
 
 
 def _discover_snowflake_tables():
-    global _SNOWFLAKE_TABLES, _SNOWFLAKE_SCHEMA_MAP
+    global _SNOWFLAKE_TABLES, _SNOWFLAKE_SCHEMA_MAP, _SNOWFLAKE_ENTRY_MAP
     if _SNOWFLAKE_TABLES:
         return
-    if not PROJECT_ID or not os.environ.get("SNOWFLAKE_ACCOUNT"):
+    if not PROJECT_ID:
+        for t in _DEFAULT_NEXUS_TABLES:
+            _SNOWFLAKE_TABLES.append(t)
+            _SNOWFLAKE_SCHEMA_MAP[t] = "syndicated_intel"
+            _SNOWFLAKE_ENTRY_MAP[t] = t
         return
     try:
         token = _get_token()
-        base_url = f"https://dataplex.googleapis.com/v1/projects/{PROJECT_ID}/locations/us/entryGroups/snowflake-nexus/entries"
+        base_url = f"https://dataplex.googleapis.com/v1/projects/{PROJECT_ID}/locations/us/entryGroups/{_NEXUS_ENTRY_GROUP}/entries"
         page_token = None
         while True:
             url = base_url + (f"?pageToken={page_token}" if page_token else "")
             resp = _get_http_session().get(url, headers={"Authorization": f"Bearer {token}"}, timeout=15)
             if resp.status_code != 200:
                 logger.warning("Snowflake table discovery failed: %d", resp.status_code)
-                return
+                break
             data = resp.json()
             for entry in data.get("entries", []):
                 fqn = entry.get("fullyQualifiedName", "")
                 entry_type = entry.get("entryType", "")
+                entry_name = entry.get("name", "")
+                entry_id = entry_name.rsplit("/", 1)[-1] if "/" in entry_name else ""
                 if "snowflake-table" not in entry_type:
                     continue
                 parts = fqn.split(".")
                 if len(parts) >= 4:
                     schema = parts[-2].lower()
                     table = parts[-1].lower()
-                    if table not in _SNOWFLAKE_SCHEMA_MAP:
-                        _SNOWFLAKE_TABLES.append(table)
-                        _SNOWFLAKE_SCHEMA_MAP[table] = schema
+                else:
+                    schema = "syndicated_intel"
+                    table = entry_id.lower()
+                if table and table not in _SNOWFLAKE_SCHEMA_MAP:
+                    _SNOWFLAKE_TABLES.append(table)
+                    _SNOWFLAKE_SCHEMA_MAP[table] = schema
+                    _SNOWFLAKE_ENTRY_MAP[table] = entry_id or table
             page_token = data.get("nextPageToken")
             if not page_token:
                 break
-        if _SNOWFLAKE_TABLES:
-            ALL_TABLE_NAMES.extend(_SNOWFLAKE_TABLES)
-            logger.info("Discovered %d Snowflake tables: %s", len(_SNOWFLAKE_TABLES), _SNOWFLAKE_TABLES)
     except Exception as e:
         logger.warning("Snowflake table discovery error: %s", e)
+
+    if not _SNOWFLAKE_TABLES:
+        for t in _DEFAULT_NEXUS_TABLES:
+            _SNOWFLAKE_TABLES.append(t)
+            _SNOWFLAKE_SCHEMA_MAP[t] = "syndicated_intel"
+            _SNOWFLAKE_ENTRY_MAP[t] = t
+
+    _SNOWFLAKE_TABLES.sort()
+    logger.info("Discovered %d Snowflake NEXUS tables: %s", len(_SNOWFLAKE_TABLES), _SNOWFLAKE_TABLES)
 
 
 def _discover_bigquery_tables():
@@ -552,21 +580,20 @@ def table_info():
     tier = _get_tier(table)
 
     if tier == 'snowflake':
-        sf_schema = _SNOWFLAKE_SCHEMA_MAP.get(table, '')
-        entry_id = f"snowflake-table-nexus_market_data-{sf_schema}-{table}"
-        entry_path = f"projects/{PROJECT_ID}/locations/us/entryGroups/snowflake-nexus/entries/{entry_id}"
+        entry_id = _SNOWFLAKE_ENTRY_MAP.get(table, table)
+        entry_path = f"projects/{PROJECT_ID}/locations/us/entryGroups/{_NEXUS_ENTRY_GROUP}/entries/{entry_id}"
         catalog_url = (
             f"https://console.cloud.google.com/dataplex/dp-entries/projects/{PROJECT_ID}/locations/us/"
-            f"entryGroups/snowflake-nexus/entries/{entry_id}?project={PROJECT_ID}"
+            f"entryGroups/{_NEXUS_ENTRY_GROUP}/entries/{entry_id}?project={PROJECT_ID}"
         )
         fallback_url = (
             f"https://console.cloud.google.com/dataplex/dp-entries/projects/{PROJECT_ID}/locations/us/"
-            f"entryGroups/snowflake-nexus?project={PROJECT_ID}"
+            f"entryGroups/{_NEXUS_ENTRY_GROUP}?project={PROJECT_ID}"
         )
         try:
             token = _get_token()
             resp = _get_http_session().get(
-                f"https://dataplex.googleapis.com/v1/{entry_path}",
+                f"https://dataplex.googleapis.com/v1/{entry_path}?view=ALL",
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=10,
             )

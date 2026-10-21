@@ -83,51 +83,53 @@
   <script src="/chat.js"></script>
   <script>
     // _snowflakeEnabled is declared in chat.js — reuse it here
+    let _snowflakeLive = false;
+    let currentAgentMode = 'basic';
 
     const NARRATIVES = {
-      executive: {
-        label: 'Executive Briefing',
-        desc: 'A retailer executive walks through increasingly complex questions.',
+      merchandising: {
+        label: 'MERCHANDISING & INVENTORY',
+        desc: 'Merchandising Manager & Supply Chain Planner — assortment margin, markdown VaR, GTIN quality, governed markdown planning.',
         steps: [
-          { cat: 'Foundational', q: 'What are our top 5 customers by total relationship value?' },
-          { cat: 'Cross-Domain', q: 'Which stores have the highest combined in-store POS and e-commerce loyalty revenue?' },
-          { cat: 'Risk Overview', q: 'Give me an overview of customer risk across the retailer.' },
-          { cat: 'Stress Test', q: 'If seasonal apparel markdowns increased 5%, what would happen to our working capital and gross margin?' },
+          { cat: 'Assortment Margin', q: 'Which merchandise assortments had the highest YTD return and market value in gold_assortment_performance?' },
+          { cat: 'Markdown Exposure', q: 'Which product categories have the highest markdown Value-at-Risk exposure, and how does inventory allocation drift across assortments?' },
+          { cat: 'Certification & GTIN DQ', q: 'Which assortment and product SKU tables are certified in Knowledge Catalog, who owns them, and can we trust the GTIN-13 identifiers in silver_product_skus?' },
+          { cat: 'Governed Markdown Plan', q: 'Build a markdown risk plan for underperforming assortments using only certified Gold tables with no PCI-scoped columns, and quantify the working capital impact.' },
         ],
       },
-      compliance: {
-        label: 'Risk & Compliance',
-        desc: 'A compliance officer drills into risk and regulatory data.',
+      customer: {
+        label: 'CUSTOMER & LOYALTY',
+        desc: 'Loyalty/CRM Marketer & Store Ops Director — loyalty tiers, omnichannel revenue, customer lineage, consent-governed return abuse.',
         steps: [
-          { cat: 'Assortment', q: 'Give me a breakdown of our bnpl_plan assortment by product type and risk rating.' },
-          { cat: 'Delinquency', q: 'Are delinquencies trending up or down? Should we be concerned?' },
-          { cat: 'PCI-DSS III', q: 'Are we meeting our working capital adequacy requirements, and what is our PCI-DSS compliance posture?' },
-          { cat: 'Filing', q: 'Are we ready for our next compliance audit? Summarize our key metrics across PCI-DSS and CCPA/CPRA schedules.' },
+          { cat: 'Loyalty Tiers', q: 'How many active customers and what total relationship value do we have by customer segment in gold_customer_360?' },
+          { cat: 'Omnichannel Revenue', q: 'Which stores have the highest combined in-store POS and e-commerce loyalty revenue?' },
+          { cat: 'Customer Lineage', q: 'Where does our customer and loyalty data originate, how does it flow from source systems to gold_customer_360, and who is the data steward?' },
+          { cat: 'Consent & Return Abuse', q: 'Identify VIP or high-risk customers whose return and promo activity flags abuse risk, showing only their marketing consent verification status and high-value refunds.' },
         ],
       },
-      governance: {
-        label: 'Data Governance',
-        desc: 'A data steward investigates data quality and lineage.',
+      privacy: {
+        label: 'PRIVACY & COMPLIANCE',
+        desc: 'Privacy & Compliance Officer — BNPL risk tiers, vintage delinquency, PCI/CCPA classification, dashboard lineage & audit.',
         steps: [
-          { cat: 'Return-Risk Trust', q: 'What\'s the average Return-Risk score across our bnpl_plan assortment, and should we trust this number?' },
-          { cat: 'GTIN Quality', q: 'We\'re seeing issues with our product_skus data. Can you check the quality of GTIN identifiers?' },
-          { cat: 'Lineage', q: 'Where does our customer data originate and how does it flow through the system?' },
-          { cat: 'Promo-Fraud', q: 'I need to investigate promo and return fraud risk. Show me high-risk customers with their consent verification status and recent high-value refund activity.' },
+          { cat: 'BNPL Risk Tiers', q: 'Give me a breakdown of our BNPL plans by plan type, risk rating, and average Return-Risk score.' },
+          { cat: 'Vintage Delinquency', q: 'Are BNPL delinquencies trending up or down across origination vintages, and which segments have the highest 90+ day delinquency rate?' },
+          { cat: 'PCI & PII Scope', q: 'Which tables contain PCI-DSS payment card data or CCPA-regulated PII in Knowledge Catalog, and what are their data classification and access control levels?' },
+          { cat: 'Dashboard Lineage & Audit', q: 'Which PCI-scoped or PII-classified columns feed our compliance and executive dashboards, what is their lineage back to the source system, and are all compliance schedules met?' },
         ],
       },
       multicloud: {
-        label: 'Multi-Cloud',
-        desc: 'Cross-platform queries spanning BigQuery and Snowflake.',
+        label: 'CROSS-CLOUD',
+        desc: 'NEXUS — Syndicated Retail Market Intelligence (Snowflake) governed in Knowledge Catalog alongside BigQuery.',
         steps: [
-          { cat: 'Benchmarks', q: 'How do our assortments compare to their benchmark indices this year? Use the external benchmark returns data.' },
-          { cat: 'Yield Curve', q: 'Show me current competitor markdown rates alongside our gross margin performance.' },
-          { cat: 'Credit Spreads', q: 'What\'s our markdown Value-at-Risk exposure by category? Show competitor pricing alongside our assortment risk.' },
-          { cat: 'FX Rates', q: 'Compare our internal FX rates with the NEXUS spot rates. Are there any significant discrepancies?' },
+          { cat: 'NEXUS Discovery', q: 'What external syndicated retail market intelligence tables are available in the NEXUS catalog?' },
+          { cat: 'Cross-Cloud Joins', q: 'Which NEXUS syndicated tables can I join to our Gold category and assortment performance data, and on what keys?' },
+          { cat: 'License & Residency', q: 'What is the license classification and data residency of our NEXUS syndicated data, and who owns the external vendor agreement?' },
+          { cat: 'Margin & Price Benchmarks', q: 'How do our margins on top-selling categories compare to syndicated market benchmarks, and which of our SKUs are priced above competitors?' },
         ],
       },
     };
 
-    let activeNarrative = 'executive';
+    let activeNarrative = 'merchandising';
 
     const AGENT_INFO = {
       basic: {
@@ -142,7 +144,7 @@
       },
       kc: {
         title: 'KC-Guided Agent',
-        desc: '128+ tables navigated through Knowledge Catalog. Searches semantically, reads metadata, traces lineage, cites glossary terms and data quality.',
+        desc: '128 BigQuery tables + 6 Snowflake NEXUS tables navigated through Knowledge Catalog. Searches semantically, reads metadata, traces lineage, cites glossary terms and data quality.',
         header: 'Chat with Knowledge Catalog Agent',
       },
     };
@@ -152,6 +154,7 @@
     const chat = new ChatPanel(viz);
 
     function switchNarrative(key) {
+      if (key === 'multicloud' && currentAgentMode !== 'kc') return;
       activeNarrative = key;
       document.querySelectorAll('.narrative-tab').forEach(t => t.classList.remove('active'));
       const el = document.querySelector(`[data-narrative="${key}"]`);
@@ -160,8 +163,13 @@
     }
 
     function switchAgent(mode) {
+      currentAgentMode = mode;
       document.querySelectorAll('.agent-tab').forEach(t => t.classList.remove('active'));
       document.querySelector(`[data-agent="${mode}"]`).classList.add('active');
+
+      if (mode !== 'kc' && activeNarrative === 'multicloud') {
+        activeNarrative = 'merchandising';
+      }
 
       viz.setMode(mode);
       chat.setAgent(mode);
@@ -171,6 +179,7 @@
       document.getElementById('vizDesc').textContent = info.desc;
       document.querySelector('#chatHeader > span').textContent = info.header;
 
+      renderNarrativeTabs();
       renderPresets();
     }
 
@@ -178,7 +187,24 @@
       const container = document.getElementById('narrativeTabs');
       container.innerHTML = '';
       for (const [key, nar] of Object.entries(NARRATIVES)) {
-        if (key === 'multicloud' && !_snowflakeEnabled) continue;
+        if (key === 'multicloud') {
+          const btn = document.createElement('button');
+          btn.dataset.narrative = key;
+          if (currentAgentMode === 'kc') {
+            btn.className = 'narrative-tab cross-cloud-tab' + (key === activeNarrative ? ' active' : '');
+            const modeText = _snowflakeLive ? 'Live' : 'Catalog-only — live Snowflake query not connected';
+            btn.innerHTML = `${nar.label} <span class="nexus-tab-badge">${_snowflakeLive ? 'Live' : 'Catalog-only'}</span>`;
+            btn.title = `${nar.desc} (${modeText})`;
+            btn.addEventListener('click', () => switchNarrative(key));
+          } else {
+            btn.className = 'narrative-tab disabled-cross-cloud';
+            btn.setAttribute('aria-disabled', 'true');
+            btn.innerHTML = `${nar.label} <span class="nexus-lock">🔒</span>`;
+            btn.title = 'Requires Knowledge Catalog — this agent cannot discover data outside BigQuery.';
+          }
+          container.appendChild(btn);
+          continue;
+        }
         const btn = document.createElement('button');
         btn.className = 'narrative-tab' + (key === activeNarrative ? ' active' : '');
         btn.dataset.narrative = key;
@@ -192,7 +218,15 @@
     function renderPresets() {
       const container = document.getElementById('presetQuestions');
       container.innerHTML = '';
-      const nar = NARRATIVES[activeNarrative];
+      const nar = NARRATIVES[activeNarrative] || NARRATIVES.merchandising;
+      if (activeNarrative === 'multicloud' && currentAgentMode === 'kc') {
+        const badge = document.createElement('div');
+        badge.className = 'cross-cloud-banner ' + (_snowflakeLive ? 'live' : 'catalog-only');
+        badge.textContent = _snowflakeLive
+          ? '◆ NEXUS · Snowflake (External): Live — cross-cloud Snowflake query connected'
+          : '◆ NEXUS · Snowflake (External): Catalog-only — live Snowflake query not connected';
+        container.appendChild(badge);
+      }
       for (let i = 0; i < nar.steps.length; i++) {
         const step = nar.steps[i];
         const btn = document.createElement('button');
@@ -264,7 +298,8 @@
     fetch('/api/config').then(r => r.json()).then(cfg => {
       viz.configure(cfg);
       chat.applyConfig(cfg);
-      _snowflakeEnabled = cfg.snowflake_enabled || false;
+      _snowflakeEnabled = cfg.snowflake_enabled !== false;
+      _snowflakeLive = cfg.snowflake_live || false;
       if (cfg.environment) {
         const envBadge = document.getElementById('envBadge');
         envBadge.textContent = cfg.environment.toUpperCase();
@@ -272,15 +307,17 @@
         envBadge.classList.remove('hidden');
       }
       renderNarrativeTabs();
+      renderPresets();
 
       // Build legend from discovered table counts
       const legend = document.getElementById('vizLegend');
+      legend.innerHTML = '';
       const tables = cfg.tables || {};
       const tiers = [
-        { key: 'gold', label: 'Gold', color: '#FFD600' },
-        { key: 'silver', label: 'Silver', color: '#90A4AE' },
-        { key: 'bronze', label: 'Bronze', color: '#FF8F00' },
-        { key: 'ref', label: 'Other', color: '#546E7A' },
+        { key: 'gold', label: 'Gold', color: '#ffd33d' },
+        { key: 'silver', label: 'Silver', color: '#a5b4fc' },
+        { key: 'bronze', label: 'Bronze', color: '#ff9f43' },
+        { key: 'ref', label: 'Other', color: '#8b949e' },
       ];
       for (const t of tiers) {
         const count = (tables[t.key] || []).length;
@@ -291,16 +328,16 @@
       }
 
       if (_snowflakeEnabled) {
-        AGENT_INFO.kc.desc = '128+ tables across BigQuery and Snowflake, navigated through Knowledge Catalog. Discovers data across clouds, queries both platforms, and combines results.';
-        AGENT_INFO.kc.title = 'Multi-cloud KC Agent';
+        AGENT_INFO.kc.desc = '128 BigQuery tables + 6 Snowflake NEXUS tables governed through Knowledge Catalog. Discovers cross-cloud metadata, lineage, and vendor licensing.';
+        AGENT_INFO.kc.title = 'Cross-Cloud KC Agent';
         if (document.querySelector('[data-agent="kc"].active')) {
           document.getElementById('vizTitle').textContent = AGENT_INFO.kc.title;
           document.getElementById('vizDesc').textContent = AGENT_INFO.kc.desc;
         }
 
         const sfItem = document.createElement('div');
-        sfItem.className = 'legend-item';
-        sfItem.innerHTML = '<div class="legend-dot" style="background:#00BCD4"></div> Snowflake (' + (cfg.snowflake_tables || []).length + ')';
+        sfItem.className = 'legend-item legend-nexus';
+        sfItem.innerHTML = '<div class="legend-diamond" style="background:#00e5ff"></div> NEXUS · Snowflake (External) (' + (cfg.snowflake_tables || []).length + ')';
         legend.appendChild(sfItem);
       }
 
