@@ -5,22 +5,12 @@ const COLORS = {
   bronze: '#ff9f43', silver: '#a5b4fc', gold: '#ffd33d',
   ref: '#8b949e', snowflake: '#00e5ff',
   bg: '#0d1117', metadata: 'rgba(63,185,80,0.22)',
-  lineage: 'rgba(230,237,243,0.45)', glossaryArc: 'rgba(63,185,80,0.75)',
 };
 
-const NEXUS_TARGETS = {
-  nexus_competitor_prices: ['gold_assortment_performance', 'gold_markdown_risk_var', 'gold_gross_margin_analysis'],
-  nexus_category_market_share: ['gold_assortment_performance', 'gold_gross_margin_analysis', 'gold_category_manager_scorecard'],
-  nexus_consumer_panel: ['gold_customer_360', 'gold_vip_member_revenue'],
-  nexus_regional_demand_index: ['gold_store_performance', 'gold_inventory_allocation'],
-  nexus_promo_calendar_benchmark: ['gold_promo_margin_impact', 'gold_markdown_risk_var'],
-  nexus_basket_affinity: ['gold_assortment_performance', 'gold_loyalty_account_summary'],
-};
+const MAX_VISIBLE_EDGES = 5;
 
 let TABLES = { bronze: [], silver: [], gold: [], ref: [] };
 let BASIC_TABLES = [];
-let GOLD_SOURCES = {};
-let GLOSSARY_LINKS = {};
 
 class PointCloud {
   constructor(canvas) {
@@ -30,6 +20,9 @@ class PointCloud {
     this.nodeMap = {};
     this.agentMode = 'basic';
     this.activeNodes = [];
+    this.renderedEdges = [];
+    this.fadingEdges = [];
+    this._touchSeq = 0;
     this.animationState = null;
     this.animationTime = 0;
     this.hoveredNode = null;
@@ -55,16 +48,21 @@ class PointCloud {
   configure(config) {
     TABLES = config.tables || { bronze: [], silver: [], gold: [], ref: [] };
     BASIC_TABLES = config.basic_tables || [];
-    GOLD_SOURCES = config.gold_sources || {};
-    GLOSSARY_LINKS = config.glossary_links || {};
     this.nodes = [];
     this.nodeMap = {};
+    this.nodeMapLower = {};
     this.activeNodes = [];
+    this.renderedEdges = [];
+    this.fadingEdges = [];
+    this._touchSeq = 0;
     this.animationState = null;
     this.metadataLines = [];
-    this.activeLineage = [];
-    this.activeGlossaryArcs = [];
     this._buildNodes();
+  }
+
+  _findNode(tableName) {
+    if (!tableName) return null;
+    return this.nodeMap[tableName] || this.nodeMapLower[tableName.toLowerCase()] || null;
   }
 
   setSnowflakeTables(tableNames) {
@@ -78,12 +76,14 @@ class PointCloud {
         radius: 5,
         color: COLORS.snowflake,
         alpha: 0.9, glow: 0, label: '', labelAlpha: 0,
+        queriedBySql: false, touchedOrder: 0,
         orbitAngle: Math.random() * Math.PI * 2,
         orbitSpeed: (0.0002 + Math.random() * 0.0003) * (Math.random() > 0.5 ? 1 : -1),
         jitterX: 0, jitterY: 0,
       };
       this.nodes.push(node);
       this.nodeMap[name] = node;
+      this.nodeMapLower[name.toLowerCase()] = node;
     }
     this._positionNodes();
   }
@@ -112,12 +112,14 @@ class PointCloud {
           radius: layer === 'gold' ? 4 : layer === 'ref' ? 2 : 3,
           color: COLORS[layer],
           alpha: 1, glow: 0, label: '', labelAlpha: 0,
+          queriedBySql: false, touchedOrder: 0,
           orbitAngle: Math.random() * Math.PI * 2,
           orbitSpeed: (0.0002 + Math.random() * 0.0003) * (Math.random() > 0.5 ? 1 : -1),
           jitterX: 0, jitterY: 0,
         };
         this.nodes.push(node);
         this.nodeMap[name] = node;
+        this.nodeMapLower[name.toLowerCase()] = node;
       }
     }
     this._positionNodes();
@@ -191,26 +193,35 @@ class PointCloud {
   setMode(mode) {
     this.agentMode = mode;
     this.activeNodes = [];
+    this.renderedEdges = [];
+    this.fadingEdges = [];
+    this._touchSeq = 0;
     this.animationState = null;
     this.metadataLines = [];
-    this.activeLineage = [];
-    this.activeGlossaryArcs = [];
     this._searchPulseRadius = 0;
     this._searchPulseAlpha = 0;
     this._resetZoom();
-    for (const n of this.nodes) { n.glow = 0; n.labelAlpha = 0; n.label = ''; }
+    for (const n of this.nodes) {
+      n.glow = 0;
+      n.labelAlpha = 0;
+      n.label = '';
+      n.queriedBySql = false;
+      n.touchedOrder = 0;
+    }
     this._positionNodes();
   }
 
-  triggerQuery(tablesUsed, toolCalls, metadataCited, lineagePath, glossaryTermsCited) {
-    this.activeNodes = [];
-    this.metadataLines = [];
-    this.activeLineage = [];
-    this.activeGlossaryArcs = [];
-    for (const n of this.nodes) { n.glow = 0; n.labelAlpha = 0; n.label = ''; }
-
+  triggerQuery(tablesUsed, toolCalls, metadataCited) {
+    this.clearAnimation();
     const used = new Set(tablesUsed || []);
-    this.activeNodes = this.nodes.filter(n => used.has(n.name) && (this.agentMode === 'kc' || n.layer !== 'snowflake'));
+    let seq = 1;
+    this.activeNodes = this.nodes.filter(n => {
+      if (!used.has(n.name)) return false;
+      if (n.layer === 'snowflake' && this.agentMode !== 'kc') return false;
+      n.queriedBySql = true;
+      n.touchedOrder = seq++;
+      return true;
+    });
 
     if (metadataCited) {
       for (let i = 0; i < this.activeNodes.length && i < metadataCited.length; i++) {
@@ -220,92 +231,46 @@ class PointCloud {
 
     this.animationState = this.agentMode;
     this.animationTime = 0;
-
-    // Build lineage lines for active tables
-    if (this.agentMode === 'kc' && tablesUsed) {
-      this._buildLineageForTables(tablesUsed, lineagePath);
-    }
-
-    // Build glossary arcs for cited terms
-    if (this.agentMode === 'kc' && glossaryTermsCited) {
-      this._buildGlossaryArcs(glossaryTermsCited);
-    }
   }
 
-  _buildLineageForTables(tablesUsed, lineagePath) {
-    const allLineage = [];
-    const defaultAlpha = this.animationState ? 0 : 0.65;
-    const usedSet = new Set(tablesUsed || []);
-    const hasActiveGold = (tablesUsed || []).some(t => t.startsWith('gold_'));
+  _getCappedEdgeTargets() {
+    const tierPriority = { gold: 0, silver: 1, bronze: 2, ref: 3 };
+    const candidates = this.activeNodes.filter(
+      n => n.glow > 0.3 && (this.agentMode === 'kc' || n.layer !== 'snowflake')
+    );
+    if (candidates.length === 0) return [];
 
-    if (lineagePath && lineagePath.length > 1) {
-      for (let i = 0; i < lineagePath.length - 1; i++) {
-        const src = this.nodeMap[lineagePath[i]];
-        const tgt = this.nodeMap[lineagePath[i + 1]];
-        if (src && tgt) allLineage.push({ src, tgt, alpha: defaultAlpha });
-      }
+    const sfNodes = candidates
+      .filter(n => n.layer === 'snowflake')
+      .sort((a, b) => {
+        const qa = a.queriedBySql ? 0 : 1;
+        const qb = b.queriedBySql ? 0 : 1;
+        if (qa !== qb) return qa - qb;
+        return (a.touchedOrder || 999) - (b.touchedOrder || 999);
+      });
+
+    const bqNodes = candidates
+      .filter(n => n.layer !== 'snowflake')
+      .sort((a, b) => {
+        const qa = a.queriedBySql ? 0 : 1;
+        const qb = b.queriedBySql ? 0 : 1;
+        if (qa !== qb) return qa - qb;
+        const ta = tierPriority[a.layer] ?? 4;
+        const tb = tierPriority[b.layer] ?? 4;
+        if (ta !== tb) return ta - tb;
+        return (a.touchedOrder || 999) - (b.touchedOrder || 999);
+      });
+
+    const selected = [];
+    const reserveNexus = this.agentMode === 'kc' && sfNodes.length > 0;
+    const maxBq = reserveNexus ? MAX_VISIBLE_EDGES - 1 : MAX_VISIBLE_EDGES;
+    for (let i = 0; i < bqNodes.length && selected.length < maxBq; i++) {
+      selected.push(bqNodes[i]);
     }
-
-    for (const tbl of tablesUsed) {
-      // Gold → silver source links
-      if (tbl.startsWith('gold_') && GOLD_SOURCES[tbl]) {
-        for (const silverTbl of GOLD_SOURCES[tbl]) {
-          const src = this.nodeMap[silverTbl];
-          const tgt = this.nodeMap[tbl];
-          if (src && tgt) allLineage.push({ src, tgt, alpha: defaultAlpha });
-
-          // Silver → bronze (same base name)
-          const baseName = silverTbl.replace('silver_', '');
-          const bronzeTbl = 'bronze_' + baseName;
-          const bSrc = this.nodeMap[bronzeTbl];
-          if (bSrc && src) allLineage.push({ src: bSrc, tgt: src, alpha: defaultAlpha });
-        }
-      }
-      // Silver → bronze direct
-      if (tbl.startsWith('silver_')) {
-        const bronzeTbl = tbl.replace('silver_', 'bronze_');
-        const src = this.nodeMap[bronzeTbl];
-        const tgt = this.nodeMap[tbl];
-        if (src && tgt) allLineage.push({ src, tgt, alpha: defaultAlpha });
-      }
-      // NEXUS Snowflake → Gold registered cross-cloud lineage ONLY (max 14 links total)
-      if (tbl.startsWith('nexus_') && NEXUS_TARGETS[tbl]) {
-        const src = this.nodeMap[tbl];
-        const activeTargets = NEXUS_TARGETS[tbl].filter(g => usedSet.has(g));
-        const targetsToDraw = (hasActiveGold && activeTargets.length > 0)
-          ? activeTargets
-          : NEXUS_TARGETS[tbl];
-        for (const goldTbl of targetsToDraw) {
-          const tgt = this.nodeMap[goldTbl];
-          if (src && tgt) allLineage.push({ src, tgt, alpha: defaultAlpha, crossCloud: true });
-        }
-      }
+    if (reserveNexus && selected.length < MAX_VISIBLE_EDGES) {
+      selected.push(sfNodes[0]);
     }
-
-    // Deduplicate
-    const seen = new Set();
-    this.activeLineage = allLineage.filter(l => {
-      const key = l.src.name + '->' + l.tgt.name;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-
-  _buildGlossaryArcs(termsCited) {
-    this.activeGlossaryArcs = [];
-    for (const term of termsCited) {
-      const tables = GLOSSARY_LINKS[term];
-      if (!tables || tables.length < 2) continue;
-      const nodes = tables.map(t => this.nodeMap[t]).filter(Boolean);
-      if (nodes.length < 2) continue;
-      for (let i = 0; i < nodes.length - 1; i++) {
-        this.activeGlossaryArcs.push({
-          a: nodes[i], b: nodes[i + 1],
-          term, alpha: 0, labelAlpha: 0,
-        });
-      }
-    }
+    return selected.slice(0, MAX_VISIBLE_EDGES);
   }
 
   _screenToWorld(screenX, screenY) {
@@ -343,18 +308,6 @@ class PointCloud {
     this.canvas.addEventListener('click', (e) => {
       const rect = this.canvas.getBoundingClientRect();
       const screenX = e.clientX - rect.left, screenY = e.clientY - rect.top;
-      const { x: wx, y: wy } = this._screenToWorld(screenX, screenY);
-
-      for (const tl of this._termLabelPositions) {
-        if (Math.abs(wx - tl.x) < tl.hw && Math.abs(wy - tl.y) < tl.hh) {
-          if (this.onTermClick) {
-            const sp = this._worldToScreen(tl.x, tl.y);
-            this.onTermClick(tl.term, sp.x + rect.left, sp.y + rect.top);
-          }
-          return;
-        }
-      }
-
       const node = this._hitTest(screenX, screenY);
       if (node && this.onNodeClick) {
         const sp = this._worldToScreen(node.x, node.y);
@@ -385,6 +338,11 @@ class PointCloud {
       this._searchPulseAlpha = Math.max(0, 1 - pulseElapsed / 1000);
     }
 
+    if (this.fadingEdges.length > 0) {
+      for (const fe of this.fadingEdges) fe.alpha -= 0.04;
+      this.fadingEdges = this.fadingEdges.filter(fe => fe.alpha > 0);
+    }
+
     if (this.animationState) this._updateQueryAnimation();
     this._draw();
     requestAnimationFrame(() => this._animate());
@@ -410,27 +368,14 @@ class PointCloud {
       if (elapsed > 3000) this.animationState = null;
 
     } else if (this.agentMode === 'kc') {
-      // Search pulse (0-1s)
       this._searchPulseRadius = elapsed < 1000 ? (elapsed / 1000) * Math.min(this.cx, this.cy) : 0;
       this._searchPulseAlpha = elapsed < 1000 ? 1 - elapsed / 1000 : 0;
 
-      // Tables illuminate (1s+)
       for (let i = 0; i < this.activeNodes.length; i++) {
         const delay = 1000 + i * 400;
         const n = this.activeNodes[i];
         n.glow = elapsed > delay ? Math.min((elapsed - delay) / 400, 1) : 0;
         n.labelAlpha = elapsed > delay + 2000 ? Math.min((elapsed - delay - 2000) / 500, 1) : 0;
-      }
-
-      // Lineage lines light up (1.5s+)
-      for (const line of this.activeLineage) {
-        line.alpha = elapsed > 1500 ? Math.min((elapsed - 1500) / 600, 0.5) : 0;
-      }
-
-      // Glossary arcs appear (2.5s+)
-      for (const arc of this.activeGlossaryArcs) {
-        arc.alpha = elapsed > 2500 ? Math.min((elapsed - 2500) / 500, 0.6) : 0;
-        arc.labelAlpha = elapsed > 3000 ? Math.min((elapsed - 3000) / 500, 0.7) : 0;
       }
 
       if (elapsed > 4000 && !this._zoomedIn) this._triggerZoomToActive();
@@ -455,7 +400,7 @@ class PointCloud {
     ctx.scale(this.zoom, this.zoom);
     ctx.translate(-this.cx + this.panX, -this.cy + this.panY);
 
-    // KC ring hints
+    // Orbital ring hints
     if (this.agentMode === 'kc') {
       const maxR = Math.min(this.cx, this.cy) * 0.85;
       for (const r of [0.75, 0.55, 0.3]) {
@@ -500,94 +445,45 @@ class PointCloud {
       ctx.stroke();
     }
 
-    // --- Layer 1: Lineage lines (including registered NEXUS -> Gold cross-cloud links) ---
-    for (const line of this.activeLineage) {
-      if (line.alpha <= 0) continue;
-      const isCross = line.crossCloud || line.src.layer === 'snowflake' || line.tgt.layer === 'snowflake';
-      if (isCross && this.agentMode !== 'kc') continue;
+    // Fade-out edges from previous query when a new query starts
+    for (const fe of this.fadingEdges) {
+      if (fe.alpha <= 0) continue;
       ctx.beginPath();
-      ctx.moveTo(line.src.x, line.src.y);
-      let mx = (line.src.x + line.tgt.x) / 2;
-      let my = (line.src.y + line.tgt.y) / 2;
-      if (isCross) {
-        const cpx = mx;
-        const cpy = my - 18;
-        ctx.quadraticCurveTo(cpx, cpy, line.tgt.x, line.tgt.y);
-        mx = (line.src.x + 2 * cpx + line.tgt.x) / 4;
-        my = (line.src.y + 2 * cpy + line.tgt.y) / 4;
+      ctx.moveTo(this.cx, this.cy);
+      ctx.lineTo(fe.x, fe.y);
+      ctx.strokeStyle = fe.isNexus
+        ? `rgba(0,229,255,${fe.alpha.toFixed(2)})`
+        : `${fe.color}${Math.floor(fe.alpha * 160).toString(16).padStart(2, '0')}`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Active query-path edges ONLY (center -> up to MAX_VISIBLE_EDGES = 5 queried tables,
+    // plus at most 1 solid cyan edge to NEXUS if a Snowflake table was used)
+    const selectedTargets = this._getCappedEdgeTargets();
+    this.renderedEdges = [];
+    for (const n of selectedTargets) {
+      const isNexus = n.layer === 'snowflake';
+      ctx.beginPath();
+      ctx.moveTo(this.cx, this.cy);
+      ctx.lineTo(n.x, n.y);
+      if (isNexus) {
+        ctx.strokeStyle = `rgba(0,229,255,${Math.min(n.glow * 0.85, 0.85).toFixed(2)})`;
       } else {
-        ctx.lineTo(line.tgt.x, line.tgt.y);
-      }
-      ctx.strokeStyle = isCross
-        ? `rgba(0,229,255,${Math.min(line.alpha * 1.15, 0.72)})`
-        : `rgba(230,237,243,${Math.min(line.alpha * 1.1, 0.65)})`;
-      if (isCross) ctx.setLineDash([4, 3]);
-      ctx.lineWidth = isCross ? 1.3 : 1.1;
-      ctx.stroke();
-      if (isCross) ctx.setLineDash([]);
-
-      ctx.beginPath();
-      ctx.arc(mx, my, 1.8, 0, Math.PI * 2);
-      ctx.fillStyle = isCross
-        ? `rgba(0,229,255,${Math.min(line.alpha * 1.25, 0.85)})`
-        : `rgba(230,237,243,${Math.min(line.alpha * 1.1, 0.75)})`;
-      ctx.fill();
-    }
-
-    // --- Layer 2: Glossary arcs (curved, green, dashed) ---
-    this._termLabelPositions = [];
-    const seenTerms = new Set();
-    for (const arc of this.activeGlossaryArcs) {
-      if (arc.alpha <= 0) continue;
-      const a = arc.a, b = arc.b;
-      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const curvature = Math.min(dist * 0.3, 60);
-      const cpx = mx - (dy / dist) * curvature;
-      const cpy = my + (dx / dist) * curvature;
-
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.quadraticCurveTo(cpx, cpy, b.x, b.y);
-      ctx.strokeStyle = `rgba(63,185,80,${arc.alpha})`;
-      ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1.3;
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      if (arc.labelAlpha > 0 && !seenTerms.has(arc.term)) {
-        seenTerms.add(arc.term);
-        const labelX = (a.x + 2 * cpx + b.x) / 4;
-        const labelY = (a.y + 2 * cpy + b.y) / 4;
-        ctx.font = '10px system-ui';
-        const tw = ctx.measureText(arc.term).width;
-        const lw = tw + 8, lh = 16;
-        ctx.fillStyle = `rgba(22,27,34,${arc.labelAlpha * 0.95})`;
-        ctx.fillRect(labelX - tw / 2 - 4, labelY - 9, lw, lh);
-        ctx.strokeStyle = `rgba(63,185,80,${arc.labelAlpha * 0.65})`;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(labelX - tw / 2 - 4, labelY - 9, lw, lh);
-        ctx.fillStyle = `rgba(126,231,135,${arc.labelAlpha})`;
-        ctx.fillText(arc.term, labelX - tw / 2, labelY + 3);
-        this._termLabelPositions.push({
-          term: arc.term, x: labelX, y: labelY, hw: lw / 2, hh: lh / 2,
-        });
-      }
-    }
-
-    // Beams from active BigQuery nodes to center
-    for (const n of this.activeNodes) {
-      if (n.layer === 'snowflake') continue;
-      if (n.glow > 0.3) {
         const col = COLORS[this.agentMode];
-        ctx.beginPath();
-        ctx.moveTo(n.x, n.y);
-        ctx.lineTo(this.cx, this.cy);
         ctx.strokeStyle = `${col}${Math.floor(n.glow * 160).toString(16).padStart(2, '0')}`;
-        ctx.lineWidth = 2;
-        ctx.stroke();
       }
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      this.renderedEdges.push({
+        from: 'center',
+        to: n.name,
+        layer: n.layer,
+        isNexus,
+        x: n.x,
+        y: n.y,
+        color: COLORS[this.agentMode],
+      });
     }
 
     // Nodes (Diamonds for NEXUS Snowflake in KC mode, Circles for BigQuery Medallion)
@@ -643,16 +539,10 @@ class PointCloud {
       }
     }
 
-    // Active table name labels with bounding-box de-confliction (KC and scaled)
-    if (this.agentMode === 'kc' || this.agentMode === 'scaled') {
+    // Active table name labels ONLY on active nodes (with bounding-box de-confliction)
+    if (this.activeNodes.length > 0) {
       ctx.font = '10px system-ui';
       const placedRects = [];
-      for (const tl of this._termLabelPositions) {
-        placedRects.push({
-          x1: tl.x - tl.hw - 3, y1: tl.y - tl.hh - 3,
-          x2: tl.x + tl.hw + 3, y2: tl.y + tl.hh + 3,
-        });
-      }
       if (this.agentMode === 'kc' && TABLES.snowflake && TABLES.snowflake.length > 0) {
         const maxR = Math.min(this.cx, this.cy) * 0.85;
         const clusterCx = this.cx + maxR * 0.72;
@@ -664,19 +554,23 @@ class PointCloud {
         });
       }
 
-      // Compute visible world viewport bounds to avoid clipping labels at canvas edges
       const topLeft = this._screenToWorld(8, 8);
       const bottomRight = this._screenToWorld(this.w - 8, this.h - 8);
 
       const tierPriority = { snowflake: 0, gold: 1, silver: 2, bronze: 3, ref: 4 };
       const sortedActive = [...this.activeNodes]
         .filter(n => n.glow > 0.3 && (this.agentMode === 'kc' || n.layer !== 'snowflake'))
-        .sort((a, b) => (tierPriority[a.layer] ?? 5) - (tierPriority[b.layer] ?? 5));
+        .sort((a, b) => {
+          const qa = a.queriedBySql ? 0 : 1;
+          const qb = b.queriedBySql ? 0 : 1;
+          if (qa !== qb) return qa - qb;
+          return (tierPriority[a.layer] ?? 5) - (tierPriority[b.layer] ?? 5);
+        });
 
       const crowded = sortedActive.length > 10 && this.zoom < 1.15;
 
       for (const n of sortedActive) {
-        if (crowded && n.layer !== 'gold' && n.layer !== 'snowflake') continue;
+        if (crowded && n.layer !== 'gold' && n.layer !== 'snowflake' && !n.queriedBySql) continue;
         const label = n.name.replace(/^(gold|silver|bronze|ref)_/, '');
         const tw = ctx.measureText(label).width;
         const bw = tw + 6;
@@ -805,17 +699,6 @@ class PointCloud {
       ctx.fillStyle = '#e6edf3';
       ctx.fillText(n.name, sx + 14, sy - 3);
     }
-
-    // Basic agent labels (outside zoom — basic doesn't zoom)
-    if (this.agentMode === 'basic') {
-      ctx.font = '11px system-ui';
-      for (const n of this.nodes) {
-        if (BASIC_TABLES.includes(n.name) && n.alpha > 0.5) {
-          ctx.fillStyle = 'rgba(230,237,243,0.88)';
-          ctx.fillText(n.name.replace('gold_', ''), n.x + n.radius + 6, n.y + 3);
-        }
-      }
-    }
   }
 
   // === Event-driven animation methods (for live WebSocket mode) ===
@@ -826,59 +709,30 @@ class PointCloud {
     this._pulseStartTime = this.animationTime;
   }
 
-  illuminateTable(tableName) {
-    const node = this.nodeMap[tableName];
+  illuminateTable(tableName, isPrimary = false) {
+    const node = this._findNode(tableName);
     if (!node) return;
     if (node.layer === 'snowflake' && this.agentMode !== 'kc') return;
     node.glow = 1;
     node.alpha = 1;
+    if (isPrimary) node.queriedBySql = true;
+    if (!node.touchedOrder) node.touchedOrder = ++this._touchSeq;
     if (!this.activeNodes.includes(node)) this.activeNodes.push(node);
-    if (this.agentMode === 'kc') {
-      this._buildLineageForTables(this.activeNodes.map(n => n.name), []);
-    }
   }
 
-  illuminateTables(tableNames) {
-    for (const name of tableNames) {
-      const node = this.nodeMap[name];
-      if (!node) continue;
-      if (node.layer === 'snowflake' && this.agentMode !== 'kc') continue;
-      node.glow = 1;
-      node.alpha = 1;
-      if (!this.activeNodes.includes(node)) this.activeNodes.push(node);
-    }
-    if (this.agentMode === 'kc') {
-      this._buildLineageForTables(this.activeNodes.map(n => n.name), []);
-    }
-  }
-
-  showGlossaryArcsForTerms(termNames) {
-    if (this.agentMode !== 'kc') return;
-    for (const term of termNames) {
-      const tables = GLOSSARY_LINKS[term];
-      if (!tables || tables.length < 2) continue;
-      const nodes = tables.map(t => this.nodeMap[t]).filter(Boolean);
-      for (let i = 0; i < nodes.length - 1; i++) {
-        this.activeGlossaryArcs.push({
-          a: nodes[i], b: nodes[i + 1],
-          term, alpha: 0.6, labelAlpha: 0.7,
-        });
-      }
+  illuminateTables(tableNames, isPrimary = false) {
+    for (const name of tableNames || []) {
+      this.illuminateTable(name, isPrimary);
     }
   }
 
   _computeActiveRegion() {
     const pts = [];
-    for (const n of this.activeNodes) pts.push({ x: n.x, y: n.y });
-    for (const l of this.activeLineage) {
-      pts.push({ x: l.src.x, y: l.src.y });
-      pts.push({ x: l.tgt.x, y: l.tgt.y });
-    }
-    for (const a of this.activeGlossaryArcs) {
-      pts.push({ x: a.a.x, y: a.a.y });
-      pts.push({ x: a.b.x, y: a.b.y });
-    }
-    if (pts.length === 0) return null;
+    const targets = this._getCappedEdgeTargets();
+    const regionNodes = targets.length > 0 ? targets : this.activeNodes;
+    for (const n of regionNodes) pts.push({ x: n.x, y: n.y });
+    pts.push({ x: this.cx, y: this.cy });
+    if (pts.length <= 1) return null;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const p of pts) {
       if (p.x < minX) minX = p.x;
@@ -915,20 +769,30 @@ class PointCloud {
   }
 
   setNodeLabel(tableName, label) {
-    const node = this.nodeMap[tableName];
+    const node = this._findNode(tableName);
     if (node) { node.label = label; node.labelAlpha = 1; }
   }
 
   clearAnimation() {
+    if (this.renderedEdges && this.renderedEdges.length > 0) {
+      this.fadingEdges = this.renderedEdges.map(e => ({ ...e, alpha: 0.55 }));
+    }
+    this.renderedEdges = [];
     this.activeNodes = [];
-    this.activeLineage = [];
-    this.activeGlossaryArcs = [];
+    this._touchSeq = 0;
     this.metadataLines = [];
     this.animationState = null;
     this._searchPulseRadius = 0;
     this._searchPulseAlpha = 0;
     this._resetZoom();
-    for (const n of this.nodes) { n.glow = 0; n.labelAlpha = 0; n.label = ''; }
+    for (const n of this.nodes) {
+      n.glow = 0;
+      n.labelAlpha = 0;
+      n.label = '';
+      n.queriedBySql = false;
+      n.touchedOrder = 0;
+    }
+    this._positionNodes();
   }
 }
 

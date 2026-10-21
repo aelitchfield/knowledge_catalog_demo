@@ -476,16 +476,13 @@ class ChatPanel {
           this.viz.triggerSearchPulse();
         }
         if (event.tables && event.tables.length > 0) {
-          this.viz.illuminateTables(event.tables);
+          this.viz.illuminateTables(event.tables, true);
         }
         break;
 
       case 'tool_response':
         if (event.tables && event.tables.length > 0) {
-          this.viz.illuminateTables(event.tables);
-        }
-        if (event.glossary_terms && event.glossary_terms.length > 0) {
-          this.viz.showGlossaryArcsForTerms(event.glossary_terms);
+          this.viz.illuminateTables(event.tables, false);
         }
         break;
 
@@ -495,14 +492,19 @@ class ChatPanel {
         this._appendText(event.text);
         break;
 
-      case 'done':
+      case 'done': {
         this._hideTyping();
         this._hideWorkingStatus();
+        const rawText = this._currentAgentMsg?._rawText || '';
+        const citedInAnswer = rawText.match(/\b((?:gold|silver|bronze|ref|nexus)_[a-z0-9_]+)\b/gi) || [];
+        if (citedInAnswer.length > 0) {
+          this.viz.illuminateTables(citedInAnswer, true);
+        }
+        if (event.all_tables) this.viz.illuminateTables(event.all_tables, false);
         this._finalizeResponse();
-        if (event.all_tables) this.viz.illuminateTables(event.all_tables);
-        if (event.all_glossary) this.viz.showGlossaryArcsForTerms(event.all_glossary);
         this.viz.zoomToActive();
         break;
+      }
 
       case 'error':
         this._hideTyping();
