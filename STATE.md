@@ -58,6 +58,11 @@
   - Updated `website-live/app.py` and `eval/run_eval.py` to use `async_create_session` and `async_stream_query`, and added permanent `logger.error("streamQuery failed: agent=%s status=%d body=%s", ...)` in `website-live/app.py`.
   - Pinned `google-adk==2.8.0` and `google-cloud-aiplatform==2.6.0` across `agents/agent_{basic,scaled,kc}/requirements.txt` (and `mcp==1.30.0` in `agent_kc/requirements.txt`).
   - Redeployed `retail-kc-demo-ui-live` (revision `00003-vtx`) and verified all 3 agents return HTTP 200 and full answers on `"Give me an overview of customer risk across the retailer."`.
+- **Phase B (Retail-ify Question Categories & API Fixes)**: COMPLETE.
+  - Known-good rollback revision recorded before B+C1+D deploy: `retail-kc-demo-ui-live-00003-vtx`.
+  - Replaced FSI tabs (`Executive Briefing | Risk & Compliance | Data Governance`) with 3 persona-mapped retail tabs (`MERCHANDISING & INVENTORY`, `CUSTOMER & LOYALTY`, `PRIVACY & COMPLIANCE`) × 4 difficulty tiers = 12 retail questions synchronized across `website-live/static/index.html` and `demo/demo_questions.md`.
+  - Verified `dataset_map` (`retail_audit`, `retail_snapshots`, `retail_staging`), `all_table_names` (`128`), and `ENVIRONMENT_LABEL="demo"` in `website-live/app.py` and `website-live/deploy.sh`.
+  - Deferred `gold_financial_summary → gold_store_channel_performance` rename per scope instructions (blast radius touches 18 repo files + deployed BQ tables, shadow `_nokc` tables, Dataplex DataProducts/Lineage/Scans, and deployed agent prompts).
 
 ## Summarized Files (Do NOT Re-Read)
 - `deploy-bq.sh`, `deploy-bq-nokc.sh`, `deploy-full.sh`, `post_deploy.sh`, `clean_up.sh`: Updated with mTLS client-cert disable exports (`GOOGLE_API_USE_CLIENT_CERTIFICATE=false`, `CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false`), `RETAIL_TAXONOMY_DISPLAY_NAME="Retail Demo Sensitivity Taxonomy (alitch)"`, `[Retail] ` dataset descriptions, and 4 required dataset labels (`use-case=retail`, `demo=retail-knowledge-catalog`, `owner=alitch`, `env=demo`).
