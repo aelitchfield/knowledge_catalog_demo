@@ -56,8 +56,8 @@ Confirm:
    - **KC-Guided Agent:** Calls `search_entries` + `lookup_context`, discovers both `gold_return_fraud_analytics` (monthly fraud alert trends) and `gold_promo_fraud_scoring` (segment-level promo abuse risk & PAIR filings), queries both, and cites the **PAIR** glossary definition and **Restricted** classification.
 3. Ask **Q8 (Tier 2.3 — Data Quality Trust: Return-Risk Score)**:
    > *"What's the average Return-Risk score across our bnpl_plan assortment, and should we trust this number?"*
-   - **Basic & Scaled Agents:** Compute the raw numeric average (`~680–682`) from `gold_bnpl_plan_summary` (or `_nokc` tables) and blindly tell the user to trust it (or admit they have no way to verify data quality).
-   - **KC-Guided Agent:** Computes the average **and** inspects Knowledge Catalog DQ rules and scan results (`vw_dq_scorecard` / `vw_dq_failed_rules` / `Loyalty & Return-Risk Score` glossary rule requiring scores in the `300–850` range), flagging that raw `bronze_bnpl_plans` contains dirty out-of-range scores (`<300`, `>850`, and `9999`) filtered during Silver curation.
+   - **Basic & Scaled Agents:** Compute the raw numeric average (`~12–78` depending on risk tier) from `gold_bnpl_plan_summary` (or `_nokc` tables) and blindly tell the user to trust it (or admit they have no way to verify data quality).
+   - **KC-Guided Agent:** Computes the average **and** inspects Knowledge Catalog DQ rules and scan results (`vw_dq_scorecard` / `vw_dq_failed_rules` / `Loyalty & Return-Risk Score` glossary rule requiring scores in the `1–100` range), flagging that raw `bronze_bnpl_plans` contains dirty out-of-range scores (`0`, `150`, `999`, `1200`, and `NULL`) filtered during Silver curation.
 4. Ask **Q10 (Tier 2.5 — Regulatory & Working Capital Thresholds)**:
    > *"Are we meeting our working capital adequacy requirements? What's our buffer above the minimum?"*
    - **Basic Agent:** Fails — no access to `gold_working_capital_adequacy`.

@@ -33,7 +33,7 @@ QUESTIONS = [
     },
     {
         "id": "M_T2", "tab": "MERCHANDISING & INVENTORY", "tier": 2, "chip": "2 Markdown Exposure",
-        "q": "Which product categories have the highest markdown Value-at-Risk exposure, and how does inventory allocation drift across assortments?",
+        "q": "For active merchandise assortments, which GTIN-13 SKUs carry the largest unrealized inventory loss, who is the assigned category manager, and how does their sector's 1-day 99% Markdown Value at Risk compare?",
         "agents": ["basic", "scaled", "kc"],
     },
     {
@@ -54,7 +54,7 @@ QUESTIONS = [
     },
     {
         "id": "C_T2", "tab": "CUSTOMER & LOYALTY", "tier": 2, "chip": "2 Omnichannel Revenue",
-        "q": "Which stores have the highest combined in-store POS and e-commerce loyalty revenue?",
+        "q": "Across our active VIP loyalty tiers, how does Customer Lifetime Value (CLV) and e-commerce order volume compare against active BNPL balances and average Return-Risk Score by primary store region?",
         "agents": ["basic", "scaled", "kc"],
     },
     {
@@ -163,6 +163,8 @@ def query_agent(agent_key, question, q_id):
 
 
 def main():
+    import sys
+    only_t2 = "--only-t2" in sys.argv
     results = {}
     if os.path.exists(OUT_PATH):
         try:
@@ -174,7 +176,9 @@ def main():
     tasks = []
     for item in QUESTIONS:
         qid = item["id"]
-        if qid not in results:
+        if only_t2 and qid not in ("M_T2", "C_T2", "P_T2"):
+            continue
+        if qid not in results or only_t2:
             results[qid] = {
                 "tab": item["tab"],
                 "tier": item["tier"],
@@ -183,7 +187,7 @@ def main():
                 "responses": {},
             }
         for ag in item["agents"]:
-            if ag not in results[qid]["responses"] or not results[qid]["responses"][ag].get("text"):
+            if only_t2 or ag not in results[qid]["responses"] or not results[qid]["responses"][ag].get("text"):
                 tasks.append((qid, ag, item["q"]))
 
     print(f"Running {len(tasks)} agent queries with 6 workers...")

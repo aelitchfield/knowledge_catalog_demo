@@ -178,7 +178,7 @@ def attach_rules_to_terms(cfg):
     term_rules = {
         "loyalty-return-risk-score": [
             {"name": "return-risk-score-range-check", "type": "TEMPLATE_REFERENCE", "dimension": "VALIDITY",
-             "description": "[Retail] Return-Risk score must be between 300 and 850",
+             "description": "[Retail] Return-Risk score must be between 1 and 100",
              "templateReference": {"name": _tref(cfg, "loyalty-return-risk-score-range")}},
         ],
         "member-tin": [

@@ -18,10 +18,10 @@ Every category preserves the 4-chip difficulty ladder:
   - *Expected behavior*: All three agents query `gold_assortment_performance` and return the top assortments (`PF-10002`, `PF-10005`, `PF-10001`, `PF-10004`, `PF-10003`).
 
 - **Tier 2 (`2 Markdown Exposure`)**
-  > Which product categories have the highest markdown Value-at-Risk exposure, and how does inventory allocation drift across assortments?
-  - *Tables*: `retail_gold.gold_markdown_risk_var`, `retail_gold.gold_inventory_allocation`, `retail_gold.gold_assortment_performance`
-  - *Glossary*: `[Retail] Markdown Value at Risk (VaR)`
-  - *Expected behavior*: Basic fails (lacks `gold_markdown_risk_var` and `gold_inventory_allocation`). Scaled struggles to join/disambiguate markdown VaR confidence levels (`0.95` vs `0.99`) and allocation drift without glossary context. KC uses `[Retail] Markdown Value at Risk (VaR)` and joins the Gold tables cleanly.
+  > For active merchandise assortments, which GTIN-13 SKUs carry the largest unrealized inventory loss, who is the assigned category manager, and how does their sector's 1-day 99% Markdown Value at Risk compare?
+  - *Tables*: `retail_silver.silver_merch_assortments`, `retail_silver.silver_inventory_positions`, `retail_silver.silver_product_skus`, `retail_silver.silver_category_managers`, `retail_gold.gold_markdown_risk_var`
+  - *Glossary*: `[Retail] Global Trade Item Number (GTIN-13)`, `[Retail] Markdown Value at Risk (VaR)`
+  - *Expected behavior*: Basic fails (lacks SKU, inventory position, category manager, and markdown VaR tables). Scaled must disambiguate Bronze vs Silver tables (`bronze_merch_assortments` vs `silver_merch_assortments`, `bronze_inventory_positions` vs `silver_inventory_positions`, `bronze_product_skus` vs `silver_product_skus` vs `ref_product_catalog`) and join across 5 tables using non-obvious keys (`assortment_id`, `security_id`, `manager_id`, `sector`) while filtering 1-day `0.99` confidence VaR without column metadata. KC uses glossary and catalog descriptions to join cleanly.
 
 - **Tier 3 (`3 Certification & GTIN DQ`)**
   > Which assortment and product SKU tables are certified in Knowledge Catalog, who owns them, and can we trust the GTIN-13 identifiers in silver_product_skus?
@@ -46,10 +46,10 @@ Every category preserves the 4-chip difficulty ladder:
   - *Expected behavior*: All three agents group `gold_customer_360` by `customer_segment` and return customer counts and `SUM(total_relationship_value)`.
 
 - **Tier 2 (`2 Omnichannel Revenue`)**
-  > Which stores have the highest combined in-store POS and e-commerce loyalty revenue?
-  - *Tables*: `retail_gold.gold_store_performance`, `retail_silver.silver_pos_transactions`, `retail_silver.silver_ecom_orders`
-  - *Glossary*: `[Retail] Store Identifier`, `[Retail] Customer Lifetime Value (CLV)`
-  - *Expected behavior*: Basic fails (no `gold_store_performance` or store-level tables). Scaled queries `gold_store_performance` alone and cannot separate/reconcile POS vs e-commerce channels without column metadata. KC discovers the store performance and channel tables via catalog metadata and provides full omnichannel metrics.
+  > Across our active VIP loyalty tiers, how does Customer Lifetime Value (CLV) and e-commerce order volume compare against active BNPL balances and average Return-Risk Score by primary store region?
+  - *Tables*: `retail_silver.silver_vip_members`, `retail_silver.silver_customers`, `retail_silver.silver_stores`, `retail_silver.silver_ecom_orders`, `retail_silver.silver_bnpl_plans`
+  - *Glossary*: `[Retail] Customer Lifetime Value (CLV)`, `[Retail] Loyalty & Return-Risk Score`, `[Retail] Store Identifier`
+  - *Expected behavior*: Basic fails (lacks VIP member, store region, e-commerce order, and customer-level BNPL tables). Scaled must disambiguate Bronze vs Silver vs Gold tables across 4 domains (VIP loyalty, stores, e-commerce, and BNPL) and map business terms (`Customer Lifetime Value (CLV)` → `net_worth_estimate` / `total_relationship_value`, `Return-Risk Score` → `return_risk_score_at_signup` / `return_risk_score`, `primary store region` → `silver_customers.primary_store_id = silver_stores.store_id`) without glossary context. KC uses glossary terms and catalog entries to resolve the join path cleanly.
 
 - **Tier 3 (`3 Customer Lineage`)**
   > Where does our customer and loyalty data originate, how does it flow from source systems to gold_customer_360, and who is the data steward?
