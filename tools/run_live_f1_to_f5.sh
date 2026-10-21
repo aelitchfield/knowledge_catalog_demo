@@ -39,11 +39,7 @@ F2_PID=$!
 echo "F2 running in background (PID=$F2_PID, log=logs/f2_phase_e.log)"
 
 echo "=== 2. Single Cloud Run Redeploy covering F1 + F3 + F4 + F5 ==="
-gcloud run deploy retail-kc-demo-ui-live \
-  --source website-live \
-  --region us-central1 \
-  --project alitch-ca-demo \
-  --quiet
+GOOGLE_CLOUD_PROJECT=alitch-ca-demo bash website-live/deploy.sh
 
 echo "=== 3. Smoke test live Cloud Run ($LIVE_URL) ==="
 HTTP_CODE=$(curl -s -o /tmp/live_config.json -w "%{http_code}" "$LIVE_URL/api/config")
