@@ -1,11 +1,20 @@
 // Point Cloud Visualization Engine for [Retail] Northwind Retail Knowledge Catalog Demo
 
 const COLORS = {
-  basic: '#4285F4', scaled: '#EA4335', kc: '#34A853',
-  bronze: '#E37400', silver: '#78909C', gold: '#F9AB00',
-  ref: '#546E7A', snowflake: '#00ACC1',
-  bg: '#F8F9FA', metadata: 'rgba(52,168,83,0.15)',
-  lineage: 'rgba(60,64,67,0.25)', glossaryArc: 'rgba(52,168,83,0.6)',
+  basic: '#58a6ff', scaled: '#f85149', kc: '#3fb950',
+  bronze: '#ff9f43', silver: '#a5b4fc', gold: '#ffd33d',
+  ref: '#8b949e', snowflake: '#00e5ff',
+  bg: '#0d1117', metadata: 'rgba(63,185,80,0.22)',
+  lineage: 'rgba(230,237,243,0.45)', glossaryArc: 'rgba(63,185,80,0.75)',
+};
+
+const NEXUS_TARGETS = {
+  nexus_competitor_prices: ['gold_assortment_performance', 'gold_markdown_risk_var', 'gold_gross_margin_analysis'],
+  nexus_category_market_share: ['gold_assortment_performance', 'gold_gross_margin_analysis', 'gold_category_manager_scorecard'],
+  nexus_consumer_panel: ['gold_customer_360', 'gold_vip_member_revenue'],
+  nexus_regional_demand_index: ['gold_store_performance', 'gold_inventory_allocation'],
+  nexus_promo_calendar_benchmark: ['gold_promo_margin_impact', 'gold_markdown_risk_var'],
+  nexus_basket_affinity: ['gold_assortment_performance', 'gold_loyalty_account_summary'],
 };
 
 let TABLES = { bronze: [], silver: [], gold: [], ref: [] };
@@ -61,13 +70,14 @@ class PointCloud {
   setSnowflakeTables(tableNames) {
     if (!tableNames || tableNames.length === 0) return;
     TABLES.snowflake = tableNames;
+    this.nodes = this.nodes.filter(n => n.layer !== 'snowflake');
     for (const name of tableNames) {
       const node = {
         id: this.nodes.length, name, layer: 'snowflake',
         x: 0, y: 0, baseX: 0, baseY: 0,
-        radius: 3.5,
+        radius: 5,
         color: COLORS.snowflake,
-        alpha: 1, glow: 0, label: '', labelAlpha: 0,
+        alpha: 0.9, glow: 0, label: '', labelAlpha: 0,
         orbitAngle: Math.random() * Math.PI * 2,
         orbitSpeed: (0.0002 + Math.random() * 0.0003) * (Math.random() > 0.5 ? 1 : -1),
         jitterX: 0, jitterY: 0,
@@ -159,23 +169,22 @@ class PointCloud {
   }
 
   _positionSnowflake(node, maxR) {
-    if (this.agentMode !== 'kc') {
-      node.alpha = 0;
-      node.baseX = this.cx + maxR * 1.2;
-      node.baseY = this.cy + maxR * 1.2;
-      return;
-    }
     const tables = TABLES.snowflake || [];
     const idx = tables.indexOf(node.name);
     const count = tables.length || 1;
-    const clusterCx = this.cx + maxR * 0.65;
-    const clusterCy = this.cy + maxR * 0.7;
-    const clusterR = Math.min(55, maxR * 0.25);
+    const clusterCx = this.cx + maxR * 0.72;
+    const clusterCy = this.cy + maxR * 0.65;
+    const clusterR = Math.min(54, maxR * 0.23);
     const angle = (idx / count) * Math.PI * 2 - Math.PI / 2;
     node.baseX = clusterCx + Math.cos(angle) * clusterR;
     node.baseY = clusterCy + Math.sin(angle) * clusterR;
-    node.alpha = 0.7;
-    node.radius = 3.5;
+    if (this.agentMode !== 'kc') {
+      node.alpha = 0.14;
+      node.radius = 4;
+      return;
+    }
+    node.alpha = 0.92;
+    node.radius = 5.5;
   }
 
   setMode(mode) {
@@ -254,6 +263,23 @@ class PointCloud {
         const src = this.nodeMap[bronzeTbl];
         const tgt = this.nodeMap[tbl];
         if (src && tgt) allLineage.push({ src, tgt, alpha: 0 });
+      }
+      // NEXUS Snowflake → Gold cross-cloud lineage
+      if (tbl.startsWith('nexus_') && NEXUS_TARGETS[tbl]) {
+        const src = this.nodeMap[tbl];
+        for (const goldTbl of NEXUS_TARGETS[tbl]) {
+          const tgt = this.nodeMap[goldTbl];
+          if (src && tgt) allLineage.push({ src, tgt, alpha: 0, crossCloud: true });
+        }
+      }
+      if (tbl.startsWith('gold_')) {
+        for (const [nexusTbl, goldList] of Object.entries(NEXUS_TARGETS)) {
+          if (goldList.includes(tbl) && tablesUsed.some(t => t.startsWith('nexus_'))) {
+            const src = this.nodeMap[nexusTbl];
+            const tgt = this.nodeMap[tbl];
+            if (src && tgt) allLineage.push({ src, tgt, alpha: 0, crossCloud: true });
+          }
+        }
       }
     }
 
@@ -416,6 +442,13 @@ class PointCloud {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.w, this.h);
 
+    // Subtle radial vignette on dark canvas
+    const bgGrad = ctx.createRadialGradient(this.cx, this.cy, 20, this.cx, this.cy, Math.max(this.w, this.h) * 0.7);
+    bgGrad.addColorStop(0, '#131922');
+    bgGrad.addColorStop(1, '#0d1117');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, this.w, this.h);
+
     // Apply zoom/pan transform
     ctx.save();
     ctx.translate(this.cx, this.cy);
@@ -428,31 +461,34 @@ class PointCloud {
       for (const r of [0.75, 0.55, 0.3]) {
         ctx.beginPath();
         ctx.arc(this.cx, this.cy, maxR * r, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+        ctx.strokeStyle = 'rgba(230,237,243,0.08)';
         ctx.lineWidth = 1;
         ctx.stroke();
       }
     }
 
-    // Snowflake cluster boundary and label (KC mode only)
-    if (this.agentMode === 'kc' && TABLES.snowflake && TABLES.snowflake.length > 0) {
+    // Snowflake NEXUS cluster boundary and label
+    if (TABLES.snowflake && TABLES.snowflake.length > 0) {
       const maxR = Math.min(this.cx, this.cy) * 0.85;
-      const clusterCx = this.cx + maxR * 0.65;
-      const clusterCy = this.cy + maxR * 0.7;
-      const clusterR = Math.min(55, maxR * 0.25);
+      const clusterCx = this.cx + maxR * 0.72;
+      const clusterCy = this.cy + maxR * 0.65;
+      const clusterR = Math.min(54, maxR * 0.23);
+      const isKC = this.agentMode === 'kc';
 
       ctx.beginPath();
-      ctx.arc(clusterCx, clusterCy, clusterR + 15, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(0,188,212,0.15)';
+      ctx.arc(clusterCx, clusterCy, clusterR + 18, 0, Math.PI * 2);
+      ctx.fillStyle = isKC ? 'rgba(0,229,255,0.04)' : 'rgba(139,148,158,0.02)';
+      ctx.fill();
+      ctx.strokeStyle = isKC ? 'rgba(0,229,255,0.38)' : 'rgba(139,148,158,0.14)';
       ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.font = '10px system-ui';
-      ctx.fillStyle = 'rgba(0,188,212,0.5)';
+      ctx.font = '600 10px system-ui';
+      ctx.fillStyle = isKC ? 'rgba(0,229,255,0.88)' : 'rgba(139,148,158,0.35)';
       ctx.textAlign = 'center';
-      ctx.fillText('NEXUS (Snowflake)', clusterCx, clusterCy - clusterR - 22);
+      ctx.fillText('NEXUS · Snowflake (External)', clusterCx, clusterCy - clusterR - 24);
       ctx.textAlign = 'left';
     }
 
@@ -460,26 +496,33 @@ class PointCloud {
     if (this._searchPulseRadius > 0 && this._searchPulseAlpha > 0) {
       ctx.beginPath();
       ctx.arc(this.cx, this.cy, this._searchPulseRadius, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(52,168,83,${this._searchPulseAlpha * 0.4})`;
+      ctx.strokeStyle = `rgba(63,185,80,${this._searchPulseAlpha * 0.45})`;
       ctx.lineWidth = 2;
       ctx.stroke();
     }
 
-    // --- Layer 1: Lineage lines (straight, white/gray) ---
+    // --- Layer 1: Lineage lines ---
     for (const line of this.activeLineage) {
       if (line.alpha <= 0) continue;
+      const isCross = line.crossCloud || line.src.layer === 'snowflake' || line.tgt.layer === 'snowflake';
       ctx.beginPath();
       ctx.moveTo(line.src.x, line.src.y);
       ctx.lineTo(line.tgt.x, line.tgt.y);
-      ctx.strokeStyle = `rgba(60,64,67,${line.alpha})`;
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isCross
+        ? `rgba(0,229,255,${Math.min(line.alpha * 1.4, 0.85)})`
+        : `rgba(230,237,243,${Math.min(line.alpha * 1.1, 0.65)})`;
+      if (isCross) ctx.setLineDash([4, 3]);
+      ctx.lineWidth = isCross ? 1.4 : 1.1;
       ctx.stroke();
+      if (isCross) ctx.setLineDash([]);
 
       const mx = (line.src.x + line.tgt.x) / 2;
       const my = (line.src.y + line.tgt.y) / 2;
       ctx.beginPath();
-      ctx.arc(mx, my, 1.5, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(60,64,67,${line.alpha * 0.8})`;
+      ctx.arc(mx, my, 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = isCross
+        ? `rgba(0,229,255,${Math.min(line.alpha * 1.4, 0.9)})`
+        : `rgba(230,237,243,${Math.min(line.alpha * 1.1, 0.75)})`;
       ctx.fill();
     }
 
@@ -499,9 +542,9 @@ class PointCloud {
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.quadraticCurveTo(cpx, cpy, b.x, b.y);
-      ctx.strokeStyle = `rgba(52,168,83,${arc.alpha})`;
+      ctx.strokeStyle = `rgba(63,185,80,${arc.alpha})`;
       ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.3;
       ctx.stroke();
       ctx.setLineDash([]);
 
@@ -512,12 +555,12 @@ class PointCloud {
         ctx.font = '10px system-ui';
         const tw = ctx.measureText(arc.term).width;
         const lw = tw + 8, lh = 16;
-        ctx.fillStyle = `rgba(255,255,255,${arc.labelAlpha * 0.95})`;
+        ctx.fillStyle = `rgba(22,27,34,${arc.labelAlpha * 0.95})`;
         ctx.fillRect(labelX - tw / 2 - 4, labelY - 9, lw, lh);
-        ctx.strokeStyle = `rgba(218,220,224,${arc.labelAlpha * 0.8})`;
+        ctx.strokeStyle = `rgba(63,185,80,${arc.labelAlpha * 0.65})`;
         ctx.lineWidth = 1;
         ctx.strokeRect(labelX - tw / 2 - 4, labelY - 9, lw, lh);
-        ctx.fillStyle = `rgba(30,142,62,${arc.labelAlpha})`;
+        ctx.fillStyle = `rgba(126,231,135,${arc.labelAlpha})`;
         ctx.fillText(arc.term, labelX - tw / 2, labelY + 3);
         this._termLabelPositions.push({
           term: arc.term, x: labelX, y: labelY, hw: lw / 2, hh: lh / 2,
@@ -528,7 +571,7 @@ class PointCloud {
     // Beams from active nodes to center
     for (const n of this.activeNodes) {
       if (n.glow > 0.3) {
-        const col = COLORS[this.agentMode];
+        const col = n.layer === 'snowflake' ? COLORS.snowflake : COLORS[this.agentMode];
         ctx.beginPath();
         ctx.moveTo(n.x, n.y);
         ctx.lineTo(this.cx, this.cy);
@@ -550,9 +593,9 @@ class PointCloud {
             ctx.beginPath();
             ctx.moveTo(bq.x, bq.y);
             ctx.quadraticCurveTo(mx, my, sf.x, sf.y);
-            ctx.strokeStyle = 'rgba(0,172,193,0.35)';
-            ctx.setLineDash([3, 3]);
-            ctx.lineWidth = 1.2;
+            ctx.strokeStyle = 'rgba(0,229,255,0.55)';
+            ctx.setLineDash([4, 3]);
+            ctx.lineWidth = 1.4;
             ctx.stroke();
             ctx.setLineDash([]);
           }
@@ -560,25 +603,54 @@ class PointCloud {
       }
     }
 
-    // Nodes
+    // Nodes (Diamonds for NEXUS Snowflake, Circles for BigQuery Medallion)
     for (const n of this.nodes) {
       if (n.alpha < 0.01) continue;
       const alpha = Math.min(n.alpha + n.glow * 0.5, 1);
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.radius + n.glow * 3, 0, Math.PI * 2);
-      ctx.fillStyle = n.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-      ctx.fill();
+      const hexAlpha = Math.floor(alpha * 255).toString(16).padStart(2, '0');
 
-      if (n.glow > 0.2) {
+      if (n.layer === 'snowflake') {
+        const r = n.radius + n.glow * 3.5;
+        ctx.save();
+        ctx.translate(n.x, n.y);
+        ctx.rotate(Math.PI / 4);
         ctx.beginPath();
-        ctx.arc(n.x, n.y, n.radius + n.glow * 8, 0, Math.PI * 2);
-        ctx.fillStyle = n.color + Math.floor(n.glow * 40).toString(16).padStart(2, '0');
+        ctx.rect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7);
+        ctx.fillStyle = n.color + hexAlpha;
         ctx.fill();
+        ctx.strokeStyle = `rgba(230,237,243,${Math.min(alpha * 0.7, 0.9)})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+
+        if (n.glow > 0.2) {
+          const gr = n.radius + n.glow * 9;
+          ctx.save();
+          ctx.translate(n.x, n.y);
+          ctx.rotate(Math.PI / 4);
+          ctx.beginPath();
+          ctx.rect(-gr * 0.85, -gr * 0.85, gr * 1.7, gr * 1.7);
+          ctx.fillStyle = n.color + Math.floor(n.glow * 50).toString(16).padStart(2, '0');
+          ctx.fill();
+          ctx.restore();
+        }
+      } else {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.radius + n.glow * 3, 0, Math.PI * 2);
+        ctx.fillStyle = n.color + hexAlpha;
+        ctx.fill();
+
+        if (n.glow > 0.2) {
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.radius + n.glow * 8, 0, Math.PI * 2);
+          ctx.fillStyle = n.color + Math.floor(n.glow * 45).toString(16).padStart(2, '0');
+          ctx.fill();
+        }
       }
 
       if (n.labelAlpha > 0 && n.label) {
         ctx.font = '10px system-ui';
-        ctx.fillStyle = `rgba(60,64,67,${n.labelAlpha * 0.85})`;
+        ctx.fillStyle = `rgba(230,237,243,${n.labelAlpha * 0.9})`;
         ctx.fillText(n.label, n.x + n.radius + 6, n.y + 3);
       }
     }
@@ -590,12 +662,17 @@ class PointCloud {
         if (n.glow > 0.3) {
           const label = n.name.replace(/^(gold|silver|bronze|ref)_/, '');
           const tw = ctx.measureText(label).width;
-          ctx.fillStyle = `rgba(255,255,255,${n.glow * 0.95})`;
+          const isSF = n.layer === 'snowflake';
+          ctx.fillStyle = `rgba(22,27,34,${n.glow * 0.95})`;
           ctx.fillRect(n.x + n.radius + 4, n.y - 7, tw + 6, 14);
-          ctx.strokeStyle = `rgba(218,220,224,${n.glow * 0.8})`;
+          ctx.strokeStyle = isSF
+            ? `rgba(0,229,255,${n.glow * 0.85})`
+            : `rgba(48,54,61,${n.glow * 0.9})`;
           ctx.lineWidth = 1;
           ctx.strokeRect(n.x + n.radius + 4, n.y - 7, tw + 6, 14);
-          ctx.fillStyle = `rgba(60,64,67,${n.glow * 0.9})`;
+          ctx.fillStyle = isSF
+            ? `rgba(0,229,255,${n.glow * 0.95})`
+            : `rgba(230,237,243,${n.glow * 0.95})`;
           ctx.fillText(label, n.x + n.radius + 7, n.y + 4);
         }
       }
@@ -660,7 +737,7 @@ class PointCloud {
       const sy = this.cy + (n.y - this.cy + this.panY) * this.zoom;
       ctx.font = '12px system-ui';
       const tw = ctx.measureText(n.name).width;
-      ctx.fillStyle = 'rgba(32,33,36,0.9)';
+      ctx.fillStyle = 'rgba(22,27,34,0.96)';
       const rx = sx + 8, ry = sy - 18, rw = tw + 12, rh = 22, rr = 4;
       ctx.beginPath();
       ctx.moveTo(rx + rr, ry);
@@ -673,7 +750,10 @@ class PointCloud {
       ctx.lineTo(rx, ry + rr);
       ctx.quadraticCurveTo(rx, ry, rx + rr, ry);
       ctx.fill();
-      ctx.fillStyle = '#F8F9FA';
+      ctx.strokeStyle = n.layer === 'snowflake' ? '#00e5ff' : '#30363d';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#e6edf3';
       ctx.fillText(n.name, sx + 14, sy - 3);
     }
 
@@ -682,7 +762,7 @@ class PointCloud {
       ctx.font = '11px system-ui';
       for (const n of this.nodes) {
         if (BASIC_TABLES.includes(n.name) && n.alpha > 0.5) {
-          ctx.fillStyle = 'rgba(60,64,67,0.75)';
+          ctx.fillStyle = 'rgba(230,237,243,0.88)';
           ctx.fillText(n.name.replace('gold_', ''), n.x + n.radius + 6, n.y + 3);
         }
       }
