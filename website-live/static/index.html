@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Northwind Retail Group — Knowledge Catalog Agent Demo (Live)</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=5">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="agent-basic">
@@ -79,12 +79,13 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="/visualization.js"></script>
-  <script src="/chat.js"></script>
+  <script src="/visualization.js?v=5"></script>
+  <script src="/chat.js?v=5"></script>
   <script>
     // _snowflakeEnabled is declared in chat.js — reuse it here
     let _snowflakeLive = false;
     let currentAgentMode = 'basic';
+    let _lastConfig = null;
 
     const NARRATIVES = {
       merchandising: {
@@ -92,7 +93,7 @@
         desc: 'Merchandising Manager & Supply Chain Planner — assortment margin, markdown VaR, GTIN quality, governed markdown planning.',
         steps: [
           { cat: 'Assortment Margin', q: 'Which merchandise assortments had the highest YTD return and market value in gold_assortment_performance?' },
-          { cat: 'Markdown Exposure', q: 'Which product categories have the highest markdown Value-at-Risk exposure, and how does inventory allocation drift across assortments?' },
+          { cat: 'Markdown Exposure', q: 'For active merchandise assortments, which GTIN-13 SKUs carry the largest unrealized inventory loss, who is the assigned category manager, and how does their sector\'s 1-day 99% Markdown Value at Risk compare?' },
           { cat: 'Certification & GTIN DQ', q: 'Which assortment and product SKU tables are certified in Knowledge Catalog, who owns them, and can we trust the GTIN-13 identifiers in silver_product_skus?' },
           { cat: 'Governed Markdown Plan', q: 'Build a markdown risk plan for underperforming assortments using only certified Gold tables with no PCI-scoped columns, and quantify the working capital impact.' },
         ],
@@ -102,7 +103,7 @@
         desc: 'Loyalty/CRM Marketer & Store Ops Director — loyalty tiers, omnichannel revenue, customer lineage, consent-governed return abuse.',
         steps: [
           { cat: 'Loyalty Tiers', q: 'How many active customers and what total relationship value do we have by customer segment in gold_customer_360?' },
-          { cat: 'Omnichannel Revenue', q: 'Which stores have the highest combined in-store POS and e-commerce loyalty revenue?' },
+          { cat: 'Omnichannel Revenue', q: 'Across our active VIP loyalty tiers, how does Customer Lifetime Value (CLV) and e-commerce order volume compare against active BNPL balances and average Return-Risk Score by primary store region?' },
           { cat: 'Customer Lineage', q: 'Where does our customer and loyalty data originate, how does it flow from source systems to gold_customer_360, and who is the data steward?' },
           { cat: 'Consent & Return Abuse', q: 'Identify VIP or high-risk customers whose return and promo activity flags abuse risk, showing only their marketing consent verification status and high-value refunds.' },
         ],
@@ -153,6 +154,40 @@
     const viz = new PointCloud(canvas);
     const chat = new ChatPanel(viz);
 
+    // Event delegation for preset chips so re-renders never drop click handlers
+    document.getElementById('presetQuestions').addEventListener('click', (e) => {
+      const btn = e.target.closest('.preset-btn');
+      if (!btn || !btn.dataset.question) return;
+      e.preventDefault();
+      chat.sendPreset(btn.dataset.question);
+    });
+
+    function renderLegend() {
+      const legend = document.getElementById('vizLegend');
+      if (!legend || !_lastConfig) return;
+      legend.innerHTML = '';
+      const tables = _lastConfig.tables || {};
+      const tiers = [
+        { key: 'gold', label: 'Gold', color: '#ffd33d' },
+        { key: 'silver', label: 'Silver', color: '#a5b4fc' },
+        { key: 'bronze', label: 'Bronze', color: '#ff9f43' },
+        { key: 'ref', label: 'Other', color: '#8b949e' },
+      ];
+      for (const t of tiers) {
+        const count = (tables[t.key] || []).length;
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `<div class="legend-dot" style="background:${t.color}"></div> ${t.label} (${count})`;
+        legend.appendChild(item);
+      }
+      if (currentAgentMode === 'kc' && _snowflakeEnabled) {
+        const sfItem = document.createElement('div');
+        sfItem.className = 'legend-item legend-nexus';
+        sfItem.innerHTML = '<div class="legend-diamond" style="background:#00e5ff"></div> NEXUS · Snowflake (External) (' + (_lastConfig.snowflake_tables || []).length + ')';
+        legend.appendChild(sfItem);
+      }
+    }
+
     function switchNarrative(key) {
       if (key === 'multicloud' && currentAgentMode !== 'kc') return;
       activeNarrative = key;
@@ -181,6 +216,7 @@
 
       renderNarrativeTabs();
       renderPresets();
+      renderLegend();
     }
 
     function renderNarrativeTabs() {
@@ -188,24 +224,20 @@
       container.innerHTML = '';
       for (const [key, nar] of Object.entries(NARRATIVES)) {
         if (key === 'multicloud') {
+          if (currentAgentMode !== 'kc') continue;
           const btn = document.createElement('button');
+          btn.type = 'button';
           btn.dataset.narrative = key;
-          if (currentAgentMode === 'kc') {
-            btn.className = 'narrative-tab cross-cloud-tab' + (key === activeNarrative ? ' active' : '');
-            const modeText = _snowflakeLive ? 'Live' : 'Catalog-only — live Snowflake query not connected';
-            btn.innerHTML = `${nar.label} <span class="nexus-tab-badge">${_snowflakeLive ? 'Live' : 'Catalog-only'}</span>`;
-            btn.title = `${nar.desc} (${modeText})`;
-            btn.addEventListener('click', () => switchNarrative(key));
-          } else {
-            btn.className = 'narrative-tab disabled-cross-cloud';
-            btn.setAttribute('aria-disabled', 'true');
-            btn.innerHTML = `${nar.label} <span class="nexus-lock">🔒</span>`;
-            btn.title = 'Requires Knowledge Catalog — this agent cannot discover data outside BigQuery.';
-          }
+          btn.className = 'narrative-tab cross-cloud-tab' + (key === activeNarrative ? ' active' : '');
+          const modeText = _snowflakeLive ? 'Live' : 'Catalog-only — live Snowflake query not connected';
+          btn.innerHTML = `${nar.label} <span class="nexus-tab-badge">${_snowflakeLive ? 'Live' : 'Catalog-only'}</span>`;
+          btn.title = `${nar.desc} (${modeText})`;
+          btn.addEventListener('click', () => switchNarrative(key));
           container.appendChild(btn);
           continue;
         }
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'narrative-tab' + (key === activeNarrative ? ' active' : '');
         btn.dataset.narrative = key;
         btn.textContent = nar.label;
@@ -230,16 +262,16 @@
       for (let i = 0; i < nar.steps.length; i++) {
         const step = nar.steps[i];
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'preset-btn';
+        btn.dataset.question = step.q;
         btn.innerHTML = `<span class="preset-num">${i + 1}</span>${step.cat}`;
         btn.title = step.q;
-        btn.addEventListener('click', () => chat.sendPreset(step.q));
         container.appendChild(btn);
       }
     }
 
     window.addEventListener('resize', () => viz.resize());
-    renderNarrativeTabs();
     switchAgent('basic');
 
     // ---- Auth ----
@@ -296,6 +328,7 @@
 
     // Single /api/config fetch shared between ChatPanel and auth
     fetch('/api/config').then(r => r.json()).then(cfg => {
+      _lastConfig = cfg;
       viz.configure(cfg);
       chat.applyConfig(cfg);
       _snowflakeEnabled = cfg.snowflake_enabled !== false;
@@ -306,27 +339,6 @@
         envBadge.className = 'env-badge ' + cfg.environment.toLowerCase();
         envBadge.classList.remove('hidden');
       }
-      renderNarrativeTabs();
-      renderPresets();
-
-      // Build legend from discovered table counts
-      const legend = document.getElementById('vizLegend');
-      legend.innerHTML = '';
-      const tables = cfg.tables || {};
-      const tiers = [
-        { key: 'gold', label: 'Gold', color: '#ffd33d' },
-        { key: 'silver', label: 'Silver', color: '#a5b4fc' },
-        { key: 'bronze', label: 'Bronze', color: '#ff9f43' },
-        { key: 'ref', label: 'Other', color: '#8b949e' },
-      ];
-      for (const t of tiers) {
-        const count = (tables[t.key] || []).length;
-        const item = document.createElement('div');
-        item.className = 'legend-item';
-        item.innerHTML = `<div class="legend-dot" style="background:${t.color}"></div> ${t.label} (${count})`;
-        legend.appendChild(item);
-      }
-
       if (_snowflakeEnabled) {
         AGENT_INFO.kc.desc = '128 BigQuery tables + 6 Snowflake NEXUS tables governed through Knowledge Catalog. Discovers cross-cloud metadata, lineage, and vendor licensing.';
         AGENT_INFO.kc.title = 'Cross-Cloud KC Agent';
@@ -334,12 +346,10 @@
           document.getElementById('vizTitle').textContent = AGENT_INFO.kc.title;
           document.getElementById('vizDesc').textContent = AGENT_INFO.kc.desc;
         }
-
-        const sfItem = document.createElement('div');
-        sfItem.className = 'legend-item legend-nexus';
-        sfItem.innerHTML = '<div class="legend-diamond" style="background:#00e5ff"></div> NEXUS · Snowflake (External) (' + (cfg.snowflake_tables || []).length + ')';
-        legend.appendChild(sfItem);
       }
+      renderNarrativeTabs();
+      renderPresets();
+      renderLegend();
 
       oauthClientId = cfg.oauth_client_id || '';
       if (!oauthClientId) return;
