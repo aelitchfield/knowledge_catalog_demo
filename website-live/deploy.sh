@@ -10,12 +10,16 @@ REGION="${GOOGLE_CLOUD_LOCATION:-us-central1}"
 SERVICE_NAME="retail-kc-demo-ui-live"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-BASIC_AGENT_ID="${BASIC_AGENT_ID:?Set BASIC_AGENT_ID}"
-SCALED_AGENT_ID="${SCALED_AGENT_ID:?Set SCALED_AGENT_ID}"
-KC_AGENT_ID="${KC_AGENT_ID:?Set KC_AGENT_ID}"
+BASIC_AGENT_ID="${BASIC_AGENT_ID:-$(gcloud secrets versions access latest --secret=retail-basic-agent-id --project="${PROJECT_ID}" 2>/dev/null || true)}"
+SCALED_AGENT_ID="${SCALED_AGENT_ID:-$(gcloud secrets versions access latest --secret=retail-scaled-agent-id --project="${PROJECT_ID}" 2>/dev/null || true)}"
+KC_AGENT_ID="${KC_AGENT_ID:-$(gcloud secrets versions access latest --secret=retail-kc-agent-id --project="${PROJECT_ID}" 2>/dev/null || true)}"
+BASIC_AGENT_ID="${BASIC_AGENT_ID:?Set BASIC_AGENT_ID or store retail-basic-agent-id in Secret Manager}"
+SCALED_AGENT_ID="${SCALED_AGENT_ID:?Set SCALED_AGENT_ID or store retail-scaled-agent-id in Secret Manager}"
+KC_AGENT_ID="${KC_AGENT_ID:?Set KC_AGENT_ID or store retail-kc-agent-id in Secret Manager}"
 # OAuth is required — read from env var or Secret Manager
 if [ -z "${OAUTH_CLIENT_ID:-}" ]; then
-    OAUTH_CLIENT_ID=$(gcloud secrets versions access latest --secret=oauth-client-id \
+    OAUTH_CLIENT_ID=$(gcloud secrets versions access latest --secret=retail-oauth-client-id \
+        --project="${PROJECT_ID}" 2>/dev/null || gcloud secrets versions access latest --secret=oauth-client-id \
         --project="${PROJECT_ID}" 2>/dev/null || true)
 fi
 if [ -z "${OAUTH_CLIENT_ID}" ]; then

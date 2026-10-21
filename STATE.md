@@ -34,6 +34,18 @@
     7. **Reusable Rule Library (`global`, `retail-rule-library-global`)**: 10 rule templates + 1 index entry.
     8. **DataScans (`us-central1`)**: 360 total (`128` profile, `132` insights, `100` quality) + published labels applied via `08_publish_scans.py` + dirty data injected via `15_inject_dirty_data.py`.
     9. **Policy Tag Taxonomy (`us`)**: `Retail Demo Sensitivity Taxonomy - alitch` (`projects/alitch-ca-demo/locations/us/taxonomies/6328323030724665961`), 4 policy tags, 32 columns tagged, `roles/datacatalog.categoryFineGrainedReader` granted to Agent Engine SA, Dataplex SA, Compute SA, and `admin@aelitchfield.altostrat.com`.
+- **Phase P5 (Agents + Website)**: COMPLETE & COMMITTED on `retail-refactor`.
+  - Deployed all 3 Vertex AI Agent Engine instances in `us-central1` and persisted IDs in Secret Manager:
+    - `[Retail] retail-agent-basic`: `2946493525224587264` (`retail-basic-agent-id`)
+    - `[Retail] retail-agent-scaled`: `1975967805526245376` (`retail-scaled-agent-id`)
+    - `[Retail] retail-agent-kc`: `8060330902103785472` (`retail-kc-agent-id`)
+  - Granted dataset access (`_nokc` datasets to basic & scaled; governed `retail_*` datasets + Dataplex/Lineage/MCP roles to KC; `WRITER` on `retail_agent_analytics` to all 3; `roles/datacatalog.categoryFineGrainedReader` on taxonomy `6328323030724665961` to all 3 per-agent `principal://` identities; `--condition=None` on project IAM bindings).
+  - Stored OAuth 2.0 Web Client ID in Secret Manager (`retail-oauth-client-id`) and deployed Cloud Run service `retail-kc-demo-ui-live` in `us-central1`:
+    - Primary URL: `https://retail-kc-demo-ui-live-esoohbbsma-uc.a.run.app`
+    - Regional URL: `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`
+- **Phase P6 (End-to-End Validation)**: COMPLETE & VERIFIED via `tools/verify_p6.py` (`logs/verify_p6.json`).
+  - Cloud Run UI (`/` HTTP 200 with Northwind Retail branding and 0 Meridian Bank hits; `/api/config` HTTP 200 with `live_mode: true`, `oauth_client_id` set, and all 3 agents active; `/static/static-responses.json` HTTP 200).
+  - All 3 Vertex AI Agent Engine agents responded with live tool calls (`basic`: `['run_sql']` on `gold_customer_360`; `scaled`: 6 `run_sql` calls across `_nokc` tables; `kc`: `['search_entries', 'lookup_context']` against Northwind Retail Business Glossary and `retail_gold.gold_gross_margin_analysis`).
 
 ## Summarized Files (Do NOT Re-Read)
 - `deploy-bq.sh`, `deploy-bq-nokc.sh`, `deploy-full.sh`, `post_deploy.sh`, `clean_up.sh`: Updated with mTLS client-cert disable exports (`GOOGLE_API_USE_CLIENT_CERTIFICATE=false`, `CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false`), `RETAIL_TAXONOMY_DISPLAY_NAME="Retail Demo Sensitivity Taxonomy (alitch)"`, `[Retail] ` dataset descriptions, and 4 required dataset labels (`use-case=retail`, `demo=retail-knowledge-catalog`, `owner=alitch`, `env=demo`).
