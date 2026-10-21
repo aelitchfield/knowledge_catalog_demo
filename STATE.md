@@ -1,37 +1,33 @@
 # STATE.md — Retail KC Demo Refactor Memory
 
-## RESUME HERE — 2026-10-21 (F1–F5 Local Complete + Verified; Cloud Deploy Ready on Auth Refresh)
+## RESUME HERE — 2026-10-21 (F1–F5 Complete, Deployed to BigQuery & Cloud Run, and Live-Verified)
 
 ### DONE
-- **P0–P6 + Phases A–E Audit**: 18 BigQuery datasets (`10` governed `retail_*` + `8` `retail_*_nokc` shadow), 128 tables/views, 9 Dataplex governance pillars, 6 NEXUS cross-cloud catalog entries + 14 lineage links, 3 Vertex AI Agent Engine instances (`basic=2946493525224587264`, `scaled=1975967805526245376`, `kc=8060330902103785472`), and Cloud Run UI (`https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`).
+- **P0–P6 + Phases A–E + F1–F5 Complete**: 18 BigQuery datasets (`10` governed `retail_*` + `8` `retail_*_nokc` shadow), 128 tables/views, 9 Dataplex governance pillars, 6 NEXUS cross-cloud catalog entries + 14 lineage links, 3 Vertex AI Agent Engine instances (`basic=2946493525224587264`, `scaled=1975967805526245376`, `kc=8060330902103785472`), and live Cloud Run UI (`https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`, revision `retail-kc-demo-ui-live-00005-hdl`, rollback `retail-kc-demo-ui-live-00004-fbd`).
 - **Keyring & Canonical URL Directives**:
   - Enforced `--password-store=basic --use-mock-keychain` on every headless Chrome invocation (zero GNOME Keyring / Secret Service prompts).
   - Verified via `grep -rn "762777230453"` that `762777230453` does **not** exist in any file in the repo (it was a one-off terminal typo). All files (`STATE.md`, `tools/validate.sh`, `tools/verify_p6.py`, `tools/run_bcd_tier_matrix.py`, `tools/run_live_f1_to_f5.sh`, `scripts/config.json`) use the canonical URL `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`.
-- **F1 (Blocker — Tier chips produce no output) — FIXED & VERIFIED (`3a48c29`)**:
+- **F1 (Blocker — Tier chips produce no output) — FIXED, DEPLOYED & LIVE-VERIFIED (`3a48c29`)**:
   - **Root cause**: `sendPreset(q)` in `index.html` set `document.getElementById('chatInput').value = q` and called `chatManager.send()`, but `chatManager.send()` in `website-live/static/chat.js` unconditionally ran `this.inputEl.value = '';` **before** `const question = text.trim();`, wiping the input before reading it. Additionally, `.hidden { display: none !important; }` was missing from `styles.css`.
   - **Fix**: `chatManager.send(presetText)` now accepts `presetText` directly (`const raw = (typeof presetText === 'string' && presetText.length > 0) ? presetText : (this.inputEl ? this.inputEl.value : '');`) before clearing the input, immediately renders the working bubble, closes any prior WebSocket, and awaits `_checkLiveMode()` if needed. Added delegated click handler on `#presetQuestions` and `.preset-num { pointer-events: none; }`.
-  - **Headless Chrome Verification**: Clicked all **16/16** preset chips across all 4 tabs (`merchandising` `#1-#4`, `customer` `#1-#4`, `privacy` `#1-#4`, `multicloud` `#1-#4`) in headless Chrome (`--password-store=basic --use-mock-keychain`) and verified streamed WebSocket tool calls + markdown responses + active graph nodes for every chip (`logs/ui_f1_f3_f4_verification.json`).
-- **F2 (Phase E Option 1 — Purge FSI semantics from SQL data) — CODE COMPLETE & COMMITTED (`d07e042`)**:
-  - Wrote and executed [`tools/apply_phase_e_option1.py`](file:///home/aelitchfield/knowledge_catalog_demo/tools/apply_phase_e_option1.py) across **34 SQL files** (`33` base generator/gold SQL files + `gold_inventory_turnover_coverage.sql`) and updated [`scripts/02_create_scans.py`](file:///home/aelitchfield/knowledge_catalog_demo/scripts/02_create_scans.py), [`scripts/10_create_rule_library.py`](file:///home/aelitchfield/knowledge_catalog_demo/scripts/10_create_rule_library.py), and [`scripts/15_inject_dirty_data.py`](file:///home/aelitchfield/knowledge_catalog_demo/scripts/15_inject_dirty_data.py).
+  - **Verification**: Clicked all **16/16** preset chips across all 4 tabs locally (`logs/ui_f1_f3_f4_verification.json`) AND clicked 1 chip on each of the 4 tabs (`merchandising #1`, `customer #1`, `privacy #1`, `multicloud #1`) on live Cloud Run (`https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`, revision `retail-kc-demo-ui-live-00005-hdl`) in headless Chrome (`--password-store=basic --use-mock-keychain`), confirming streamed WebSocket answers from Vertex AI Agent Engine (`logs/live_cloud_run_smoke.json`).
+- **F2 (Phase E Option 1 — Purge FSI semantics from SQL data) — DEPLOYED TO BIGQUERY & VERIFIED (`d07e042`, `761f165`)**:
+  - Executed [`tools/apply_phase_e_option1.py`](file:///home/aelitchfield/knowledge_catalog_demo/tools/apply_phase_e_option1.py) across **34 SQL files** and ran `deploy-bq.sh --refresh`, `deploy-bq-nokc.sh --refresh`, `10_create_rule_library.py`, `02_create_scans.py`, and `15_inject_dirty_data.py` (`logs/f2_phase_e.log`).
   - Eliminated all FSI strings (`Pass`/`Special Mention`/`Substandard`/`Doubtful` → `Low`/`Watch`/`Elevated`/`High Risk`; `HELOC`/`SBA`/`EXTENDED_FINANCING` → `PAY_IN_4`/`MONTHLY_3M`/`MONTHLY_6M`/`SEASONAL_PROMO_12M`/`APPLIANCE_FINANCING_18M`/`VIP_FLEX_PAY`; `ROTH_IRA`/`401K` → `POINTS_REWARDS`/`VIP_CASHBACK`/`STORE_CREDIT`/`GIFT_WALLET`/`EMPLOYEE_PERKS`; `CET1` → `Core Working Capital`; `US Large Cap Equity` → `Apparel & Outerwear`, etc.).
-  - Replaced FICO `567–580` (`300–850`) with `1–100` `return_risk_score` correlated by risk tier (`Low ~12`, `Watch ~35`, `Elevated ~58`, `High Risk ~82`), BNPL balances `$35–$1,900` (avg `~$280`), overdue review rates varying by tier (`Low ~1%`, `Watch ~4%`, `Elevated ~9%`, `High Risk ~18%`), and realistic retail loyalty balances (`$15–$600`).
-  - Preserved all intentional DQ defects (`MOD(n, 50)=0` NULL DOBs, `MOD(n, 80)=0` unformatted TINs, `MOD(n, 500)=0` customer dupes, `MOD(n, 67)=0` bad GTINs in `bronze_product_skus`, plus all 6 dirty data injections in `15_inject_dirty_data.py`).
-- **F3 (NEXUS graph — too many edges & label collisions) — FIXED & VERIFIED (`4ca6d2a`)**:
+  - Replaced FICO `567–580` (`300–850`) with `1–100` `return_risk_score` correlated by risk tier (`Low ~12.48`, `Watch ~34.97`, `Elevated ~58.02`, `High Risk ~81.99`), BNPL balances `$35–$1,900` (avg `~$296`), overdue review rates varying by tier (`Low ~1.31%`, `Watch ~4.05%`, `Elevated ~8.85%`, `High Risk ~17.50%`), and realistic retail loyalty balances (`~$253` avg).
+  - Verified intentional DQ defects survived in BigQuery (`dirty_bnpl_scores=150`, `dirty_loyalty_accts=50`, `dirty_customers=20,140`, `dirty_bronze_gtins=149`, `dirty_silver_gtins=74`, `vw_dq_failed_rules=3`).
+  - Re-ran all 3 agents on `"Give me an overview of customer risk across the retailer"` (`logs/f2_customer_risk_overview.json`), confirming pure retail risk tiers and retail dollar balances.
+- **F3 (NEXUS graph — too many edges & label collisions) — DEPLOYED & VERIFIED (`4ca6d2a`)**:
   - Removed the `activeBQ × activeSF` cartesian-product loop and radial center beams for `snowflake` nodes in [`website-live/static/visualization.js`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/visualization.js).
-  - Cross-cloud chips now draw **10** cyan dashed edges; stress test with 40 BQ + 6 NEXUS nodes active reduced cyan edges from **246** to **11** (strictly registered `NEXUS_TARGETS` lineage links).
+  - Cross-cloud chips now draw **10** cyan dashed edges (down from **246** before); stress test with 40 BQ + 6 NEXUS nodes active draws **11** cyan dashed edges (strictly registered `NEXUS_TARGETS` lineage links).
   - Added bounding-box label collision de-confliction + viewport bounds clamping so active node labels never overlap or clip off-screen.
-- **F4 (NEXUS fully absent from Basic & Scaled) — FIXED & VERIFIED (`7512a68`)**:
-  - Removed NEXUS nodes (`visibleSfNodes: 0`), cyan edges (`crossEdges: 0`), NEXUS cluster boundary, `"NEXUS · Snowflake (External)"` legend entry (`4` legend items: `Gold (20)`, `Silver (40)`, `Bronze (40)`, `Other (28)`), and the `CROSS-CLOUD` tab (`3` tabs only) on `basic` and `scaled` views. `kc` view retains all 4 tabs, 5 legend items, and 6 NEXUS diamonds.
-- **F5 (Harden Tier 2 questions `M_T2` & `C_T2`) — CODE COMPLETE & COMMITTED (`8f9eefb`)**:
-  - Updated `M_T2` and `C_T2` in [`website-live/static/index.html`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/index.html), [`tools/run_bcd_tier_matrix.py`](file:///home/aelitchfield/knowledge_catalog_demo/tools/run_bcd_tier_matrix.py), and [`demo/demo_questions.md`](file:///home/aelitchfield/knowledge_catalog_demo/demo/demo_questions.md) to require Bronze/Silver/Gold disambiguation, 4–5 table cross-domain joins on non-obvious keys, and glossary-mapped business terms.
-
-### CURRENT BLOCKER (AGENTS.md Rule 7)
-- **GCP / ADC Auth Expired**: Both `gcloud auth print-access-token` and Application Default Credentials (`~/.config/gcloud/application_default_credentials.json`) return `Reauthentication is needed. Please run gcloud auth login`.
-- **Single Resumable Command Ready**: Created [`tools/run_live_f1_to_f5.sh`](file:///home/aelitchfield/knowledge_catalog_demo/tools/run_live_f1_to_f5.sh) which immediately executes:
-  1. F2 backgrounded (`deploy-bq.sh --refresh`, `deploy-bq-nokc.sh --refresh`, `10_create_rule_library.py`, `02_create_scans.py`, `15_inject_dirty_data.py` → `logs/f2_phase_e.log`).
-  2. One Cloud Run redeploy (`retail-kc-demo-ui-live`) covering F1 + F3 + F4 + F5, followed by live `/api/config` smoke test (with automatic rollback to `retail-kc-demo-ui-live-00004-fbd` if anything fails).
-  3. Post-F2 3-agent run on `"Give me an overview of customer risk across the retailer"`.
-  4. F5 6/9-cell Tier 2 matrix re-run (`python3 tools/run_bcd_tier_matrix.py --only-t2`).
+- **F4 (NEXUS fully absent from Basic & Scaled) — DEPLOYED & LIVE-VERIFIED (`7512a68`)**:
+  - Verified on live Cloud Run (`retail-kc-demo-ui-live-00005-hdl`) that `basic` and `scaled` have strictly 3 tabs (`merchandising`, `customer`, `privacy`), 4 legend items (`Gold (20)`, `Silver (40)`, `Bronze (40)`, `Other (28)`), `visibleSfNodes: 0`, and `crossEdges: 0`. `kc` view retains all 4 tabs, 5 legend items, and 6 NEXUS diamonds (`logs/live_cloud_run_smoke.json`).
+- **F5 (Harden Tier 2 questions `M_T2` & `C_T2`) — DEPLOYED & EVALUATED (`8f9eefb`)**:
+  - Updated `M_T2` and `C_T2` in [`website-live/static/index.html`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/index.html), [`tools/run_bcd_tier_matrix.py`](file:///home/aelitchfield/knowledge_catalog_demo/tools/run_bcd_tier_matrix.py), and [`demo/demo_questions.md`](file:///home/aelitchfield/knowledge_catalog_demo/demo/demo_questions.md), and evaluated `M_T2`, `C_T2`, `P_T2` × 3 agents (`logs/bcd_tier_matrix.json`):
+    - `M_T2`: Basic ❌ FAIL (0 tools, no SKU/loss/manager/VaR in its 5 tables); Scaled ⚠️ PARTIAL / WRONG RANKING (found tables via 5 `LIMIT 1` probes, but summed across all historical snapshots instead of latest inventory and sorted lexicographically on `FORMAT('$%.2f', ...)` returning `-10006.03`..`-10.84` instead of `-73822.53`..`-68700.28`); KC ✅ PASS (`LatestInventory` CTE, accurate top-5 SKUs `-73822.53`..`-68700.28`, glossary definitions + unassigned manager governance gap).
+    - `C_T2`: Basic ❌ FAIL (missing e-commerce orders, return-risk score, and store region); Scaled ❌ FAIL (ran 9 `LIMIT 10` probes, failed to bridge `customer_id -> account_id` for `silver_ecom_orders` or link `silver_bnpl_plans.return_risk_score_at_signup`, explicitly stating it could not compare e-commerce order volume or Return-Risk Score); KC ✅ PASS (4 catalog calls + 1 SQL join across `gold_customer_360`, `silver_stores`, `silver_bnpl_plans`, `silver_ecom_orders`, returning 0–100 Return-Risk Scores `30.26–31.75` and flagging the `silver_ecom_orders` linkage gap in Data Governance Notes).
+    - `P_T2`: Basic ❌ FAIL (missing origination vintage history); Scaled ⚠️ PARTIAL / MISINTERPRETED (queried `bronze_bnpl_plans` for vintage trends, but misinterpreted `classified_rate_pct` on `90+ DPD` rows in `gold_bnpl_delinquency_analysis` as 100% store-level delinquency rates); KC ✅ PASS (`gold_bnpl_delinquency_analysis` segment averages `3.8%` / `2.5%` / `1.2%` + glossary & PCI/CCPA/GDPR notes).
 
 ### ENVIRONMENT FACTS to reload
 - **Project**: `alitch-ca-demo` / project number `98236392654` (`us-central1` region, `us` multi-region)
@@ -39,12 +35,9 @@
   - `basic`: `2946493525224587264` (`[Retail] retail-agent-basic`, secret `retail-basic-agent-id`)
   - `scaled`: `1975967805526245376` (`[Retail] retail-agent-scaled`, secret `retail-scaled-agent-id`)
   - `kc`: `8060330902103785472` (`[Retail] retail-agent-kc`, secret `retail-kc-agent-id`)
-- **Cloud Run URL**: `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app` (rollback revision: `retail-kc-demo-ui-live-00004-fbd`)
+- **Cloud Run URL**: `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app` (live revision: `retail-kc-demo-ui-live-00005-hdl`, rollback revision: `retail-kc-demo-ui-live-00004-fbd`)
 - **Chrome Headless Flags (Mandatory)**: `--password-store=basic --use-mock-keychain`
 - **`bq` CLI mTLS workaround**: Requires `GOOGLE_API_USE_CLIENT_CERTIFICATE=false` and `CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false`
-
-### NEXT ACTION ON RESUME
-Run `gcloud auth login && gcloud auth application-default login`, then execute `bash tools/run_live_f1_to_f5.sh`.
 
 ---
 
