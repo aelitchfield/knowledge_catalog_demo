@@ -661,6 +661,8 @@ body {
   font-weight: 600;
   margin-right: 4px;
   border: 1px solid var(--border);
+  pointer-events: none;
+  user-select: none;
 }
 
 .input-row {
@@ -822,4 +824,118 @@ body {
 .sign-out-btn:hover {
   background: var(--surface-hover);
   color: var(--text);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Agent working indicator and structured answer/discovery sections */
+.message.agent.working {
+  border-color: rgba(88, 166, 255, 0.35);
+}
+.agent-scaled .message.agent.working {
+  border-color: rgba(248, 81, 73, 0.35);
+}
+.agent-kc .message.agent.working {
+  border-color: rgba(63, 185, 80, 0.35);
+}
+
+.agent-working-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.working-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--basic-color);
+  animation: pulseDot 1.2s infinite ease-in-out;
+}
+.agent-scaled .working-dot { background: var(--scaled-color); }
+.agent-kc .working-dot { background: var(--kc-color); }
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.answer-section {
+  border-left: 3px solid var(--kc-color);
+  padding-left: 10px;
+  margin-bottom: 8px;
+}
+
+.answer-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--kc-color);
+  margin-bottom: 4px;
+}
+
+.answer-content {
+  font-size: 13px;
+}
+
+.discovery-section {
+  margin-top: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.discovery-section summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: 600;
+  user-select: none;
+}
+
+.discovery-content {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.popup-body {
+  margin-bottom: 8px;
+}
+
+.popup-desc.loading {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.popup-cols-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 6px 0 4px 0;
+  text-transform: uppercase;
+}
+
+.popup-col-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.popup-col-pill {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
 }

@@ -392,15 +392,20 @@ class ChatPanel {
     }
   }
 
-  async send() {
-    const text = this.inputEl.value.trim();
+  async send(presetText) {
+    const text = (typeof presetText === 'string' ? presetText : this.inputEl.value).trim();
     if (!text) return;
     this.inputEl.value = '';
     this.sendBtn.disabled = true;
     this._addMessage(text, true);
     this._currentAgentMsg = null;
     this._showTyping();
+    this._getOrCreateAgentMsg();
     this.viz.clearAnimation();
+
+    if (!this.liveMode) {
+      await this._checkLiveMode();
+    }
 
     if (this.liveMode) {
       await this._sendWebSocket(text);
@@ -411,6 +416,10 @@ class ChatPanel {
   }
 
   async _sendWebSocket(question) {
+    if (this.ws) {
+      try { this.ws.onclose = null; this.ws.onerror = null; this.ws.close(); } catch (e) {}
+      this.ws = null;
+    }
     return new Promise((resolve) => {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const token = localStorage.getItem('id_token') || '';
@@ -418,8 +427,15 @@ class ChatPanel {
         ? `${proto}//${location.host}/api/ws?token=${encodeURIComponent(token)}`
         : `${proto}//${location.host}/api/ws`;
       const ws = new WebSocket(wsUrl);
+      this.ws = ws;
       let resolved = false;
-      const done = () => { if (!resolved) { resolved = true; resolve(); } };
+      const done = () => {
+        if (!resolved) {
+          resolved = true;
+          if (this.ws === ws) this.ws = null;
+          resolve();
+        }
+      };
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ agent: this.agentMode, question }));
@@ -430,6 +446,7 @@ class ChatPanel {
         this._handleLiveEvent(event);
         if (event.type === 'done' || event.type === 'error') {
           this._hideTyping();
+          this._hideWorkingStatus();
           ws.close();
           done();
         }
@@ -437,6 +454,7 @@ class ChatPanel {
 
       ws.onerror = () => {
         this._hideTyping();
+        this._hideWorkingStatus();
         this._sendStatic(question).then(done);
       };
 
@@ -448,6 +466,7 @@ class ChatPanel {
   _handleLiveEvent(event) {
     switch (event.type) {
       case 'status':
+        this._getOrCreateAgentMsg();
         break;
 
       case 'tool_call':
@@ -529,8 +548,9 @@ class ChatPanel {
   }
 
   sendPreset(question) {
-    this.inputEl.value = question;
-    this.send();
+    if (!question) return;
+    this.inputEl.value = '';
+    return this.send(question);
   }
 
   async resetSession() {
