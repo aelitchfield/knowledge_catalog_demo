@@ -132,6 +132,10 @@ class PointCloud {
       else if (this.agentMode === 'basic') this._positionBasic(node, maxR);
       else if (this.agentMode === 'scaled') this._positionScaled(node, maxR);
       else this._positionKC(node, maxR);
+      if ((node.x === 0 && node.y === 0) || this.agentMode === 'kc') {
+        node.x = node.baseX;
+        node.y = node.baseY;
+      }
     }
   }
 
@@ -159,15 +163,17 @@ class PointCloud {
   }
 
   _positionKC(node, maxR) {
-    const rings = { bronze: 0.75, silver: 0.55, gold: 0.3, ref: 0.9 };
-    const ringR = maxR * (rings[node.layer] || 0.7);
-    const tables = TABLES[node.layer];
-    const idx = tables.indexOf(node.name);
-    const angle = (idx / tables.length) * Math.PI * 2 + (node.layer === 'silver' ? 0.1 : 0);
+    const rings = { gold: 0.30, silver: 0.52, bronze: 0.72, ref: 0.90 };
+    const ringR = maxR * (rings[node.layer] || 0.72);
+    const tables = TABLES[node.layer] || [];
+    const idx = Math.max(0, tables.indexOf(node.name));
+    const count = Math.max(1, tables.length);
+    const offset = node.layer === 'silver' ? (Math.PI / count) : 0;
+    const angle = (idx / count) * Math.PI * 2 - Math.PI / 2 + offset;
     node.baseX = this.cx + Math.cos(angle) * ringR;
     node.baseY = this.cy + Math.sin(angle) * ringR;
-    node.alpha = node.layer === 'ref' ? 0.3 : 0.7;
-    node.radius = node.layer === 'gold' ? 4.5 : node.layer === 'ref' ? 2 : 3;
+    node.alpha = node.layer === 'ref' ? 0.45 : 0.85;
+    node.radius = node.layer === 'gold' ? 4.5 : node.layer === 'ref' ? 2.5 : 3.5;
   }
 
   _positionSnowflake(node, maxR) {
@@ -322,10 +328,17 @@ class PointCloud {
 
     for (const n of this.nodes) {
       n.orbitAngle += n.orbitSpeed;
-      n.jitterX = Math.sin(t * 0.001 + n.id) * 1.5;
-      n.jitterY = Math.cos(t * 0.0012 + n.id * 1.3) * 1.5;
-      n.x += (n.baseX + n.jitterX - n.x) * 0.03;
-      n.y += (n.baseY + n.jitterY - n.y) * 0.03;
+      if (this.agentMode === 'kc') {
+        n.jitterX = 0;
+        n.jitterY = 0;
+        n.x += (n.baseX - n.x) * 0.2;
+        n.y += (n.baseY - n.y) * 0.2;
+      } else {
+        n.jitterX = Math.sin(t * 0.001 + n.id) * 1.5;
+        n.jitterY = Math.cos(t * 0.0012 + n.id * 1.3) * 1.5;
+        n.x += (n.baseX + n.jitterX - n.x) * 0.06;
+        n.y += (n.baseY + n.jitterY - n.y) * 0.06;
+      }
     }
 
     this.zoom += (this.targetZoom - this.zoom) * 0.04;
@@ -400,13 +413,14 @@ class PointCloud {
     ctx.scale(this.zoom, this.zoom);
     ctx.translate(-this.cx + this.panX, -this.cy + this.panY);
 
-    // Orbital ring hints
+    // Orbital ring guides (4 concentric rings in KC mode: gold, silver, bronze, ref)
     if (this.agentMode === 'kc') {
       const maxR = Math.min(this.cx, this.cy) * 0.85;
-      for (const r of [0.75, 0.55, 0.3]) {
+      ctx.setLineDash([]);
+      for (const r of [0.30, 0.52, 0.72, 0.90]) {
         ctx.beginPath();
         ctx.arc(this.cx, this.cy, maxR * r, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(230,237,243,0.08)';
+        ctx.strokeStyle = 'rgba(230,237,243,0.14)';
         ctx.lineWidth = 1;
         ctx.stroke();
       }
@@ -446,43 +460,38 @@ class PointCloud {
     }
 
     // Fade-out edges from previous query when a new query starts
+    ctx.setLineDash([]);
     for (const fe of this.fadingEdges) {
       if (fe.alpha <= 0) continue;
       ctx.beginPath();
       ctx.moveTo(this.cx, this.cy);
       ctx.lineTo(fe.x, fe.y);
-      ctx.strokeStyle = fe.isNexus
-        ? `rgba(0,229,255,${fe.alpha.toFixed(2)})`
-        : `${fe.color}${Math.floor(fe.alpha * 160).toString(16).padStart(2, '0')}`;
+      ctx.strokeStyle = `rgba(63,185,80,${fe.alpha.toFixed(2)})`;
       ctx.lineWidth = 2;
       ctx.stroke();
     }
 
-    // Active query-path edges ONLY (center -> up to MAX_VISIBLE_EDGES = 5 queried tables,
-    // plus at most 1 solid cyan edge to NEXUS if a Snowflake table was used)
+    // Active query-path edges ONLY: solid green (#3fb950), center -> touched nodes only, cap 5, 0 at idle
     const selectedTargets = this._getCappedEdgeTargets();
     this.renderedEdges = [];
+    this.renderedLabels = [];
+    ctx.setLineDash([]);
     for (const n of selectedTargets) {
-      const isNexus = n.layer === 'snowflake';
       ctx.beginPath();
       ctx.moveTo(this.cx, this.cy);
       ctx.lineTo(n.x, n.y);
-      if (isNexus) {
-        ctx.strokeStyle = `rgba(0,229,255,${Math.min(n.glow * 0.85, 0.85).toFixed(2)})`;
-      } else {
-        const col = COLORS[this.agentMode];
-        ctx.strokeStyle = `${col}${Math.floor(n.glow * 160).toString(16).padStart(2, '0')}`;
-      }
+      ctx.strokeStyle = '#3fb950';
       ctx.lineWidth = 2;
       ctx.stroke();
       this.renderedEdges.push({
         from: 'center',
         to: n.name,
         layer: n.layer,
-        isNexus,
+        isNexus: n.layer === 'snowflake',
         x: n.x,
         y: n.y,
-        color: COLORS[this.agentMode],
+        color: '#3fb950',
+        dashed: false,
       });
     }
 
@@ -531,16 +540,10 @@ class PointCloud {
           ctx.fill();
         }
       }
-
-      if (n.labelAlpha > 0 && n.label) {
-        ctx.font = '10px system-ui';
-        ctx.fillStyle = `rgba(230,237,243,${n.labelAlpha * 0.9})`;
-        ctx.fillText(n.label, n.x + n.radius + 6, n.y + 3);
-      }
     }
 
-    // Active table name labels ONLY on active nodes (with bounding-box de-confliction)
-    if (this.activeNodes.length > 0) {
+    // Labels ONLY on touched nodes (selectedTargets, capped at 5, zero at idle)
+    if (selectedTargets.length > 0) {
       ctx.font = '10px system-ui';
       const placedRects = [];
       if (this.agentMode === 'kc' && TABLES.snowflake && TABLES.snowflake.length > 0) {
@@ -557,20 +560,7 @@ class PointCloud {
       const topLeft = this._screenToWorld(8, 8);
       const bottomRight = this._screenToWorld(this.w - 8, this.h - 8);
 
-      const tierPriority = { snowflake: 0, gold: 1, silver: 2, bronze: 3, ref: 4 };
-      const sortedActive = [...this.activeNodes]
-        .filter(n => n.glow > 0.3 && (this.agentMode === 'kc' || n.layer !== 'snowflake'))
-        .sort((a, b) => {
-          const qa = a.queriedBySql ? 0 : 1;
-          const qb = b.queriedBySql ? 0 : 1;
-          if (qa !== qb) return qa - qb;
-          return (tierPriority[a.layer] ?? 5) - (tierPriority[b.layer] ?? 5);
-        });
-
-      const crowded = sortedActive.length > 10 && this.zoom < 1.15;
-
-      for (const n of sortedActive) {
-        if (crowded && n.layer !== 'gold' && n.layer !== 'snowflake' && !n.queriedBySql) continue;
+      for (const n of selectedTargets) {
         const label = n.name.replace(/^(gold|silver|bronze|ref)_/, '');
         const tw = ctx.measureText(label).width;
         const bw = tw + 6;
@@ -603,15 +593,18 @@ class PointCloud {
           }
         }
 
-        if (!chosen) continue;
+        if (!chosen) {
+          chosen = { x1: candidates[0].x, y1: candidates[0].y, x2: candidates[0].x + bw, y2: candidates[0].y + bh };
+        }
         placedRects.push(chosen);
+        this.renderedLabels.push({ name: n.name, text: label, x: chosen.x1, y: chosen.y1 });
 
         const isSF = n.layer === 'snowflake';
         ctx.fillStyle = `rgba(22,27,34,${n.glow * 0.95})`;
         ctx.fillRect(chosen.x1, chosen.y1, bw, bh);
         ctx.strokeStyle = isSF
           ? `rgba(0,229,255,${n.glow * 0.85})`
-          : `rgba(48,54,61,${n.glow * 0.9})`;
+          : `rgba(63,185,80,${n.glow * 0.85})`;
         ctx.lineWidth = 1;
         ctx.strokeRect(chosen.x1, chosen.y1, bw, bh);
         ctx.fillStyle = isSF
@@ -621,36 +614,38 @@ class PointCloud {
       }
     }
 
-    // Agent center orb — diamond shape with concentric rings
-    const agentColor = COLORS[this.agentMode];
+    // Agent center orb + glow: Basic=blue (#58a6ff), Scaled=red (#f85149), KC=green (#3fb950)
+    const agentColor = COLORS[this.agentMode] || '#58a6ff';
     const pulse = this.animationState ? Math.sin(this.animationTime * 0.004) * 0.15 : 0;
     const size = 12;
 
+    // Prominent radial center glow per agent
+    const glowR = 54 + pulse * 30;
+    const grad = ctx.createRadialGradient(this.cx, this.cy, 0, this.cx, this.cy, glowR);
+    grad.addColorStop(0, agentColor + '66');
+    grad.addColorStop(0.45, agentColor + '28');
+    grad.addColorStop(1, agentColor + '00');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(this.cx, this.cy, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
     // Outer pulsing ring
-    const ringR = 22 + pulse * 30;
+    const ringR = 24 + pulse * 30;
     ctx.beginPath();
     ctx.arc(this.cx, this.cy, ringR, 0, Math.PI * 2);
-    ctx.strokeStyle = agentColor + '30';
+    ctx.strokeStyle = agentColor + '88';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
     // Second ring (dashed)
     ctx.beginPath();
-    ctx.arc(this.cx, this.cy, ringR + 8, 0, Math.PI * 2);
+    ctx.arc(this.cx, this.cy, ringR + 10, 0, Math.PI * 2);
     ctx.setLineDash([3, 5]);
-    ctx.strokeStyle = agentColor + '18';
+    ctx.strokeStyle = agentColor + '44';
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.setLineDash([]);
-
-    // Soft glow
-    const grad = ctx.createRadialGradient(this.cx, this.cy, 0, this.cx, this.cy, ringR);
-    grad.addColorStop(0, agentColor + '18');
-    grad.addColorStop(1, agentColor + '00');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(this.cx, this.cy, ringR, 0, Math.PI * 2);
-    ctx.fill();
 
     // Diamond shape (rotated square)
     ctx.save();
@@ -748,15 +743,10 @@ class PointCloud {
   }
 
   _triggerZoomToActive() {
-    if (this.agentMode !== 'kc') return;
-    const region = this._computeActiveRegion();
-    if (!region) return;
-    const scaleX = this.w / region.w;
-    const scaleY = this.h / region.h;
-    this.targetZoom = Math.min(scaleX, scaleY, 2.5);
-    this.targetPanX = this.cx - region.cx;
-    this.targetPanY = this.cy - region.cy;
-    this._zoomedIn = true;
+    this.targetZoom = 1;
+    this.targetPanX = 0;
+    this.targetPanY = 0;
+    this._zoomedIn = false;
   }
 
   _resetZoom() {
@@ -778,6 +768,7 @@ class PointCloud {
       this.fadingEdges = this.renderedEdges.map(e => ({ ...e, alpha: 0.55 }));
     }
     this.renderedEdges = [];
+    this.renderedLabels = [];
     this.activeNodes = [];
     this._touchSeq = 0;
     this.metadataLines = [];

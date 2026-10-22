@@ -225,12 +225,13 @@ class ChatPanel {
       const chips = document.createElement('div');
       chips.className = 'tool-chips';
       for (const tc of toolCalls) {
+        const upper = String(tc || '').toUpperCase();
         const chip = document.createElement('span');
         chip.className = 'tool-chip';
-        if (tc.includes('search')) chip.className += ' search';
-        else if (tc.includes('context') || tc.includes('lookup')) chip.className += ' lookup';
+        if (upper.includes('SEARCH')) chip.className += ' search';
+        else if (upper.includes('CONTEXT') || upper.includes('LOOKUP')) chip.className += ' lookup';
         else chip.className += ' sql';
-        chip.textContent = tc;
+        chip.textContent = upper;
         chips.appendChild(chip);
       }
       div.appendChild(chips);
@@ -264,12 +265,13 @@ class ChatPanel {
 
   _addToolChip(name) {
     const msg = this._getOrCreateAgentMsg();
+    const upper = String(name || '').toUpperCase();
     const chip = document.createElement('span');
     chip.className = 'tool-chip';
-    if (name.includes('search')) chip.className += ' search';
-    else if (name.includes('context') || name.includes('lookup')) chip.className += ' lookup';
+    if (upper.includes('SEARCH')) chip.className += ' search';
+    else if (upper.includes('CONTEXT') || upper.includes('LOOKUP')) chip.className += ' lookup';
     else chip.className += ' sql';
-    chip.textContent = name;
+    chip.textContent = upper;
     msg._chips.appendChild(chip);
   }
 
@@ -481,9 +483,6 @@ class ChatPanel {
         break;
 
       case 'tool_response':
-        if (event.tables && event.tables.length > 0) {
-          this.viz.illuminateTables(event.tables, false);
-        }
         break;
 
       case 'text_chunk':
@@ -498,9 +497,10 @@ class ChatPanel {
         const rawText = this._currentAgentMsg?._rawText || '';
         const citedInAnswer = rawText.match(/\b((?:gold|silver|bronze|ref|nexus)_[a-z0-9_]+)\b/gi) || [];
         if (citedInAnswer.length > 0) {
-          this.viz.illuminateTables(citedInAnswer, true);
+          this.viz.illuminateTables(citedInAnswer.slice(0, 5), true);
+        } else if (this.viz.activeNodes.length === 0 && event.all_tables) {
+          this.viz.illuminateTables(event.all_tables.slice(0, 5), false);
         }
-        if (event.all_tables) this.viz.illuminateTables(event.all_tables, false);
         this._finalizeResponse();
         this.viz.zoomToActive();
         break;

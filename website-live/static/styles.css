@@ -88,17 +88,17 @@ body {
 .agent-tab.active[data-agent="basic"] {
   background: var(--basic-bg);
   color: var(--basic-color);
-  border-color: rgba(88, 166, 255, 0.35);
+  border-color: var(--basic-color);
 }
 .agent-tab.active[data-agent="scaled"] {
   background: var(--scaled-bg);
   color: var(--scaled-color);
-  border-color: rgba(248, 81, 73, 0.35);
+  border-color: var(--scaled-color);
 }
 .agent-tab.active[data-agent="kc"] {
   background: var(--kc-bg);
   color: var(--kc-color);
-  border-color: rgba(63, 185, 80, 0.35);
+  border-color: var(--kc-color);
 }
 
 /* Main Split Layout */
@@ -167,12 +167,12 @@ body {
   position: absolute;
   top: 16px;
   left: 16px;
-  padding: 12px 16px;
-  background: rgba(22, 27, 34, 0.92);
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  padding: 0;
+  background: transparent;
+  border: none;
   max-width: 300px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+  box-shadow: none;
+  pointer-events: none;
 }
 
 .viz-info h3 {
@@ -255,9 +255,9 @@ body {
 .system-description-msg {
   font-size: 12px;
   color: var(--text-muted) !important;
-  background: var(--surface) !important;
-  border: 1px dashed var(--border) !important;
-  padding: 8px 12px !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 2px 0 !important;
 }
 
 .message {
@@ -280,6 +280,8 @@ body {
   color: #ffffff;
   border-bottom-right-radius: 4px;
 }
+.agent-scaled .message.user { background: #da3633; }
+.agent-kc .message.user { background: #238636; }
 
 .message.agent {
   align-self: flex-start;
@@ -299,6 +301,9 @@ body {
 
 .tool-chip {
   font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
   padding: 2px 8px;
   border-radius: 4px;
   background: rgba(139, 148, 158, 0.15);
@@ -307,9 +312,9 @@ body {
   border: 1px solid rgba(139, 148, 158, 0.25);
 }
 
-.tool-chip.search { background: rgba(63, 185, 80, 0.15); color: #7ee787; border-color: rgba(63, 185, 80, 0.35); }
-.tool-chip.lookup { background: rgba(88, 166, 255, 0.15); color: #79c0ff; border-color: rgba(88, 166, 255, 0.35); }
-.tool-chip.sql { background: rgba(255, 159, 67, 0.15); color: #ffb86c; border-color: rgba(255, 159, 67, 0.35); }
+.tool-chip.search { background: rgba(63, 185, 80, 0.18); color: #3fb950; border-color: rgba(63, 185, 80, 0.45); }
+.tool-chip.lookup { background: rgba(88, 166, 255, 0.18); color: #58a6ff; border-color: rgba(88, 166, 255, 0.45); }
+.tool-chip.sql { background: rgba(255, 159, 67, 0.18); color: #ff9f43; border-color: rgba(255, 159, 67, 0.45); }
 
 /* Streaming tool trace */
 .streaming-tools {
@@ -572,12 +577,20 @@ body {
   background: var(--surface-hover);
 }
 .narrative-tab.active {
-  background: var(--surface-elevated);
-  color: var(--text);
+  background: var(--basic-bg);
+  color: var(--basic-color);
   border-color: var(--basic-color);
 }
-.agent-scaled .narrative-tab.active { border-color: var(--scaled-color); }
-.agent-kc .narrative-tab.active { border-color: var(--kc-color); }
+.agent-scaled .narrative-tab.active {
+  background: var(--scaled-bg);
+  color: var(--scaled-color);
+  border-color: var(--scaled-color);
+}
+.agent-kc .narrative-tab.active {
+  background: var(--kc-bg);
+  color: var(--kc-color);
+  border-color: var(--kc-color);
+}
 
 .narrative-tab.cross-cloud-tab {
   border-color: rgba(0, 229, 255, 0.4);

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Northwind Retail Group — Knowledge Catalog Agent Demo (Live)</title>
-  <link rel="stylesheet" href="/styles.css?v=5">
+  <link rel="stylesheet" href="/styles.css?v=7">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="agent-basic">
@@ -79,8 +79,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="/visualization.js?v=5"></script>
-  <script src="/chat.js?v=5"></script>
+  <script src="/visualization.js?v=7"></script>
+  <script src="/chat.js?v=7"></script>
   <script>
     // _snowflakeEnabled is declared in chat.js — reuse it here
     let _snowflakeLive = false;
@@ -92,17 +92,17 @@
         label: 'MERCHANDISING & INVENTORY',
         desc: 'Merchandising Manager & Supply Chain Planner — assortment margin, markdown VaR, GTIN quality, governed markdown planning.',
         steps: [
-          { cat: 'Assortment Margin', q: 'Which merchandise assortments had the highest YTD return and market value in gold_assortment_performance?' },
+          { cat: 'Assortment Margin', q: 'Which of our merchandise assortments have delivered the highest YTD return and total market value?' },
           { cat: 'Markdown Exposure', q: 'For active merchandise assortments, which GTIN-13 SKUs carry the largest unrealized inventory loss, who is the assigned category manager, and how does their sector\'s 1-day 99% Markdown Value at Risk compare?' },
           { cat: 'Certification & GTIN DQ', q: 'Which assortment and product SKU tables are certified in Knowledge Catalog, who owns them, and can we trust the GTIN-13 identifiers in silver_product_skus?' },
-          { cat: 'Governed Markdown Plan', q: 'Build a markdown risk plan for underperforming assortments using only certified Gold tables with no PCI-scoped columns, and quantify the working capital impact.' },
+          { cat: 'Governed Markdown Plan', q: 'Build a markdown recovery plan for our underperforming assortments using only governed, certified data free of payment card scope, and quantify the working capital impact.' },
         ],
       },
       customer: {
         label: 'CUSTOMER & LOYALTY',
         desc: 'Loyalty/CRM Marketer & Store Ops Director — loyalty tiers, omnichannel revenue, customer lineage, consent-governed return abuse.',
         steps: [
-          { cat: 'Loyalty Tiers', q: 'How many active customers and what total relationship value do we have by customer segment in gold_customer_360?' },
+          { cat: 'Loyalty Tiers', q: 'How many active customers and what total relationship value do we have across each customer loyalty segment?' },
           { cat: 'Omnichannel Revenue', q: 'Across our active VIP loyalty tiers, how does Customer Lifetime Value (CLV) and e-commerce order volume compare against active BNPL balances and average Return-Risk Score by primary store region?' },
           { cat: 'Customer Lineage', q: 'Where does our customer and loyalty data originate, how does it flow from source systems to gold_customer_360, and who is the data steward?' },
           { cat: 'Consent & Return Abuse', q: 'Identify VIP or high-risk customers whose return and promo activity flags abuse risk, showing only their marketing consent verification status and high-value refunds.' },
@@ -115,17 +115,17 @@
           { cat: 'BNPL Risk Tiers', q: 'Give me a breakdown of our BNPL plans by plan type, risk rating, and average Return-Risk score.' },
           { cat: 'Vintage Delinquency', q: 'Are BNPL delinquencies trending up or down across origination vintages, and which segments have the highest 90+ day delinquency rate?' },
           { cat: 'PCI & PII Scope', q: 'Which tables contain PCI-DSS payment card data or CCPA-regulated PII in Knowledge Catalog, and what are their data classification and access control levels?' },
-          { cat: 'Dashboard Lineage & Audit', q: 'Which PCI-scoped or PII-classified columns feed our compliance and executive dashboards, what is their lineage back to the source system, and are all compliance schedules met?' },
+          { cat: 'Dashboard Lineage & Audit', q: 'Which payment-card or personal-data fields flow into our executive compliance dashboards, which source systems do they originate from, and are all regulatory filing schedules on track?' },
         ],
       },
       multicloud: {
         label: 'CROSS-CLOUD',
         desc: 'NEXUS — Syndicated Retail Market Intelligence (Snowflake) governed in Knowledge Catalog alongside BigQuery.',
         steps: [
-          { cat: 'NEXUS Discovery', q: 'What external syndicated retail market intelligence tables are available in the NEXUS catalog?' },
-          { cat: 'Cross-Cloud Joins', q: 'Which NEXUS syndicated tables can I join to our Gold category and assortment performance data, and on what keys?' },
-          { cat: 'License & Residency', q: 'What is the license classification and data residency of our NEXUS syndicated data, and who owns the external vendor agreement?' },
-          { cat: 'Margin & Price Benchmarks', q: 'How do our margins on top-selling categories compare to syndicated market benchmarks, and which of our SKUs are priced above competitors?' },
+          { cat: 'Benchmarks', q: 'How do our top categories compare to NEXUS market benchmarks? Where are we losing share?' },
+          { cat: 'Price Gaps', q: 'Which of our SKUs are priced above competitors right now, and what is that costing us in units?' },
+          { cat: 'Demand', q: 'Are there regions where NEXUS demand indices are rising but our sales are flat?' },
+          { cat: 'Basket', q: 'What do NEXUS basket affinity patterns suggest we should be cross-merchandising that we currently are not?' },
         ],
       },
     };
@@ -229,8 +229,8 @@
           btn.type = 'button';
           btn.dataset.narrative = key;
           btn.className = 'narrative-tab cross-cloud-tab' + (key === activeNarrative ? ' active' : '');
-          const modeText = _snowflakeLive ? 'Live' : 'Catalog-only — live Snowflake query not connected';
-          btn.innerHTML = `${nar.label} <span class="nexus-tab-badge">${_snowflakeLive ? 'Live' : 'Catalog-only'}</span>`;
+          const modeText = _snowflakeLive ? 'Live' : 'Simulated connector — NEXUS reference data';
+          btn.innerHTML = `${nar.label} <span class="nexus-tab-badge">${_snowflakeLive ? 'Live' : 'Simulated connector — NEXUS reference data'}</span>`;
           btn.title = `${nar.desc} (${modeText})`;
           btn.addEventListener('click', () => switchNarrative(key));
           container.appendChild(btn);
@@ -256,7 +256,7 @@
         badge.className = 'cross-cloud-banner ' + (_snowflakeLive ? 'live' : 'catalog-only');
         badge.textContent = _snowflakeLive
           ? '◆ NEXUS · Snowflake (External): Live — cross-cloud Snowflake query connected'
-          : '◆ NEXUS · Snowflake (External): Catalog-only — live Snowflake query not connected';
+          : '◆ NEXUS · Snowflake (External): Simulated connector — NEXUS reference data';
         container.appendChild(badge);
       }
       for (let i = 0; i < nar.steps.length; i++) {

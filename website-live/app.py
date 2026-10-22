@@ -459,7 +459,7 @@ def _discover_bigquery_tables():
                     continue
                 dataset = match.group(1)
                 table = match.group(2)
-                if dataset not in _RETAIL_DATASETS:
+                if dataset not in _RETAIL_DATASETS or table == "nexus_connector_data":
                     continue
                 tier = _DATASET_TO_TIER.get(dataset, 'ref')
                 tables_by_tier[tier].append(table)

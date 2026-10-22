@@ -1,9 +1,14 @@
 # STATE.md — Retail KC Demo Refactor Memory
 
-## RESUME HERE — 2026-10-21 (Phase G1-F Complete, Deployed to Cloud Run, and Live-Verified)
+## RESUME HERE — 2026-10-22 (Phases I-A, I-B, and I-C Complete, Deployed to Cloud Run, and 40/40 Chips Verified)
 
 ### DONE
-- **P0–P6 + Phases A–E + F1–F5 + Phase G1-F Complete**: 18 BigQuery datasets (`10` governed `retail_*` + `8` `retail_*_nokc` shadow), 128 tables/views, 9 Dataplex governance pillars, 6 NEXUS cross-cloud catalog entries + 14 lineage links, 3 Vertex AI Agent Engine instances (`basic=2946493525224587264`, `scaled=1975967805526245376`, `kc=8060330902103785472`), and live Cloud Run UI (`https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`, revision `retail-kc-demo-ui-live-00006-6rx`, rollback `retail-kc-demo-ui-live-00006-6rx`).
+- **P0–P6 + Phases A–E + F1–F5 + Phase G1-F + Phases I-A, I-B, I-C Complete**: 18 BigQuery datasets (`10` governed `retail_*` + `8` `retail_*_nokc` shadow), 128 tables/views, 9 Dataplex governance pillars, 6 NEXUS cross-cloud catalog entries + 14 lineage links, 3 Vertex AI Agent Engine instances (`basic=2946493525224587264`, `scaled=1975967805526245376`, `kc=8060330902103785472`), and live Cloud Run UI (`https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`, revision `retail-kc-demo-ui-live-00008-*`, rollback `retail-kc-demo-ui-live-00007-cdz`).
+- **Phase I-C (40-Chip Headless Verification — `tools/verify_all_chips.py` → `logs/chip_verification.json`) — COMPLETE**:
+  - Clicked all 40 chips headlessly (`basic`: 12, `scaled`: 12, `kc`: 16) with `--password-store=basic --use-mock-keychain`: **0 BROKEN** (`23 CORRECT`, `17 ARTICULATE_FAIL`).
+- **Phase I-B (Rendering — KC concentric orbital rings, solid green edges to touched nodes only, labels on touched nodes only, agent center glow/tabs/send colors, uppercase color-coded tool chips, borderless agent description) — DEPLOYED & VERIFIED**:
+  - Updated [`website-live/static/visualization.js`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/visualization.js), [`website-live/static/chat.js`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/chat.js), [`website-live/static/styles.css`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/styles.css), and [`website-live/static/index.html`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/index.html) (`?v=7`).
+  - Live headless Chrome verification on KC agent, Chip 1 (`tools/verify_phase_ib.py`): `edge_count = 4`, `label_count = 4`.
 - **Phase G1-F (Remove static lineage mesh, active-path edges only) — FIXED, DEPLOYED (`retail-kc-demo-ui-live-00006-6rx`) & LIVE-VERIFIED (`logs/verify_g1f_results.json`)**:
   - **Root cause vs. upstream**: Upstream (`main:website-live/static/visualization.js`) initialized `this.activeLineage` edges with `alpha: 0` and only incremented `alpha` inside `_updateQueryAnimation()` (static fallback mode), so in live WebSocket mode (`illuminateTables()`) `line.alpha` remained `0` and **0 lineage mesh edges** were drawn. Phase C1/D changed `_buildLineageForTables()` to `const defaultAlpha = this.animationState ? 0 : 0.65;` and invoked `_buildLineageForTables()` inside `illuminateTables()` plus `showGlossaryArcsForTerms()` (`alpha: 0.6`) on every `search_entries` `tool_response`, cascading across `GOLD_SOURCES` (`48` gold→silver + `22` silver→bronze), `GLOSSARY_LINKS` (`58` chain arcs), and `NEXUS_TARGETS` (`14` links) to draw 50–100+ background mesh lines per query.
   - **Fix**: Deleted `_buildLineageForTables()`, `_buildGlossaryArcs()`, `showGlossaryArcsForTerms()`, `this.activeLineage`, `this.activeGlossaryArcs`, and idle static `BASIC_TABLES` labels in `website-live/static/visualization.js` and `website-live/static/chat.js`. Added `MAX_VISIBLE_EDGES = 5`, active query-path edge selection (`center -> queried tables`, plus at most 1 solid cyan edge to NEXUS when a Snowflake table is active), smooth fade-out (`this.fadingEdges`) when a new query starts, and labels-only-on-active-nodes across all 3 agent modes.
@@ -42,7 +47,7 @@
   - `basic`: `2946493525224587264` (`[Retail] retail-agent-basic`, secret `retail-basic-agent-id`)
   - `scaled`: `1975967805526245376` (`[Retail] retail-agent-scaled`, secret `retail-scaled-agent-id`)
   - `kc`: `8060330902103785472` (`[Retail] retail-agent-kc`, secret `retail-kc-agent-id`)
-- **Cloud Run URL**: `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app` (live revision: `retail-kc-demo-ui-live-00006-6rx`, rollback revision: `retail-kc-demo-ui-live-00004-fbd`)
+- **Cloud Run URL**: `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app` (live revision: `retail-kc-demo-ui-live-00007-cdz`, rollback revision: `retail-kc-demo-ui-live-00006-6rx`)
 - **Chrome Headless Flags (Mandatory)**: `--password-store=basic --use-mock-keychain`
 - **`bq` CLI mTLS workaround**: Requires `GOOGLE_API_USE_CLIENT_CERTIFICATE=false` and `CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false`
 
@@ -130,6 +135,13 @@
 - **Phase E (Data Semantics Audit ONLY — `PHASE_E_DATA_AUDIT.md`)**: COMPLETE & COMMITTED.
   - Audited all 128 SQL files and documented every surviving FSI literal string, uncorrelated random generator, and mortgage/wealth numeric distribution in [`PHASE_E_DATA_AUDIT.md`](file:///home/aelitchfield/knowledge_catalog_demo/PHASE_E_DATA_AUDIT.md) (no data or deploy scripts modified).
   - **STOPPED at Phase C2 / Post-Phase-E per autonomy rules** — awaiting user review of `PHASE_E_DATA_AUDIT.md` and Snowflake credentials if Phase C2 is desired.
+
+- **Phase K1 (Deterministic NEXUS Connector + FSI-Quality Response Template)**: COMPLETE & VERIFIED.
+  - Known-good rollback Cloud Run revision recorded before K1 deploy: `retail-kc-demo-ui-live-00008-cxg` (active revision: `retail-kc-demo-ui-live-00009-xfh`).
+  - Seeded deterministic `alitch-ca-demo.retail_reference.nexus_connector_data` in BigQuery via `tools/seed_nexus_connector_data.py` with 46 realistic rows across all 6 `nexus_*` tables (`nexus_competitor_prices`, `nexus_category_market_share`, `nexus_consumer_panel`, `nexus_regional_demand_index`, `nexus_promo_calendar_benchmark`, `nexus_basket_affinity`) labeled `"[Retail] NEXUS connector reference data (simulated external feed)"` (and excluded `nexus_connector_data` from `website-live/app.py` canvas table discovery so `all_table_names` remains `128`).
+  - Implemented `query_snowflake(sql: str) -> str` in `agents/agent_kc/agent.py` to execute real SQL against `retail_reference.nexus_connector_data` using `NEXUS_MARKET_DATA.<SCHEMA>.<TABLE>` naming, returning rows shaped like a Snowflake response with deterministic fallback. Normalized `PROJECT_ID` to `"alitch-ca-demo"` when Vertex AI Reasoning Engine sets numeric project number `98236392654`.
+  - Updated UI badge in `website-live/static/index.html` to `"Simulated connector — NEXUS reference data"` and enforced honesty/voice/provenance guardrails and the mandatory 4-section template (`**Data discovery.**`, `**Finding.**`, `**Governance Context.**`, `**Recommendations.**`) in `agents/agent_kc/agent.py`.
+  - Deployed `retail-agent-kc` (`8060330902103785472`) and Cloud Run `retail-kc-demo-ui-live-00009-xfh`; verified Cross-Cloud #2 (`Price Gaps`) in `logs/k1.json` (`search_entries`, `lookup_context`, `query_snowflake`, `run_sql`, all 4 sections present).
 
 ## Summarized Files (Do NOT Re-Read)
 - `deploy-bq.sh`, `deploy-bq-nokc.sh`, `deploy-full.sh`, `post_deploy.sh`, `clean_up.sh`: Updated with mTLS client-cert disable exports (`GOOGLE_API_USE_CLIENT_CERTIFICATE=false`, `CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false`), `RETAIL_TAXONOMY_DISPLAY_NAME="Retail Demo Sensitivity Taxonomy (alitch)"`, `[Retail] ` dataset descriptions, and 4 required dataset labels (`use-case=retail`, `demo=retail-knowledge-catalog`, `owner=alitch`, `env=demo`).
