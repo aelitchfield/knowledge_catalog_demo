@@ -143,6 +143,14 @@
   - Updated UI badge in `website-live/static/index.html` to `"Simulated connector — NEXUS reference data"` and enforced honesty/voice/provenance guardrails and the mandatory 4-section template (`**Data discovery.**`, `**Finding.**`, `**Governance Context.**`, `**Recommendations.**`) in `agents/agent_kc/agent.py`.
   - Deployed `retail-agent-kc` (`8060330902103785472`) and Cloud Run `retail-kc-demo-ui-live-00009-xfh`; verified Cross-Cloud #2 (`Price Gaps`) in `logs/k1.json` (`search_entries`, `lookup_context`, `query_snowflake`, `run_sql`, all 4 sections present).
 
+- **Phase K2 (4+ Graph Connections with Glossary Edge Labels)**: COMPLETE & VERIFIED.
+  - Known-good rollback Cloud Run revision recorded before K2 deploy: `retail-kc-demo-ui-live-00009-xfh` (active revision: `retail-kc-demo-ui-live-00010-877`).
+  - Updated `website-live/static/visualization.js`, `website-live/static/chat.js`, and `website-live/static/index.html` (`?v=8`):
+    - KC Agent graph draws 4–6 solid green (`#3fb950`) edges from the glowing center node to touched tables across layers (`bronze`, `silver`, `gold`, `ref`, plus at least 1 cyan `nexus_*` node when Snowflake was queried).
+    - Pulls the cited glossary term from the KC agent's `Governance Context` section (`_extractGovernanceGlossaryTerm`) and renders it as a small green floating text pill near the relevant edge (`setGlossaryEdgeLabel`).
+    - Zero edges at idle; clears on new query; faint dashed cyan inside NEXUS cluster stays as texture only.
+  - Headless Chrome verification on `retail-kc-demo-ui-live-00010-877` (`tools/verify_phase_ib.py`, `--password-store=basic --use-mock-keychain`): `edges_drawn = 6`, `labels_visible = 7` (6 touched node labels + 1 glossary edge label).
+
 ## Summarized Files (Do NOT Re-Read)
 - `deploy-bq.sh`, `deploy-bq-nokc.sh`, `deploy-full.sh`, `post_deploy.sh`, `clean_up.sh`: Updated with mTLS client-cert disable exports (`GOOGLE_API_USE_CLIENT_CERTIFICATE=false`, `CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false`), `RETAIL_TAXONOMY_DISPLAY_NAME="Retail Demo Sensitivity Taxonomy (alitch)"`, `[Retail] ` dataset descriptions, and 4 required dataset labels (`use-case=retail`, `demo=retail-knowledge-catalog`, `owner=alitch`, `env=demo`).
 - `modules/bigquery-{medallion,reference,dashboards}/main.tf`: Updated dataset IDs, table lists, `[Retail] ` descriptions, and 4 dataset labels.

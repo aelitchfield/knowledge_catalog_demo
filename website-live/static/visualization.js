@@ -37,6 +37,8 @@ class PointCloud {
     this.targetPanX = 0; this.targetPanY = 0;
     this._zoomedIn = false;
     this._termLabelPositions = [];
+    this.activeGlossaryTerm = null;
+    this.renderedGlossaryLabels = [];
     this.onNodeClick = null;
     this.onTermClick = null;
     this.resize();
@@ -200,6 +202,10 @@ class PointCloud {
     this.agentMode = mode;
     this.activeNodes = [];
     this.renderedEdges = [];
+    this.renderedLabels = [];
+    this.renderedGlossaryLabels = [];
+    this.activeGlossaryTerm = null;
+    this._termLabelPositions = [];
     this.fadingEdges = [];
     this._touchSeq = 0;
     this.animationState = null;
@@ -217,7 +223,7 @@ class PointCloud {
     this._positionNodes();
   }
 
-  triggerQuery(tablesUsed, toolCalls, metadataCited) {
+  triggerQuery(tablesUsed, toolCalls, metadataCited, lineagePath, glossaryTermsCited) {
     this.clearAnimation();
     const used = new Set(tablesUsed || []);
     let seq = 1;
@@ -235,8 +241,27 @@ class PointCloud {
       }
     }
 
+    if (this.agentMode === 'kc' && Array.isArray(glossaryTermsCited) && glossaryTermsCited.length > 0) {
+      this.setGlossaryEdgeLabel(glossaryTermsCited[0]);
+    }
+
     this.animationState = this.agentMode;
     this.animationTime = 0;
+  }
+
+  setGlossaryEdgeLabel(term, targetTable = null) {
+    if (!term || this.agentMode !== 'kc') {
+      this.activeGlossaryTerm = null;
+      return;
+    }
+    const raw = String(term).trim();
+    const display = raw.replace(/^\[Retail\]\s*/i, '').trim();
+    if (!display) return;
+    this.activeGlossaryTerm = {
+      raw: raw.startsWith('[Retail]') ? raw : `[Retail] ${display}`,
+      display,
+      targetTable: targetTable ? String(targetTable).toLowerCase() : null,
+    };
   }
 
   _getCappedEdgeTargets() {
@@ -267,14 +292,49 @@ class PointCloud {
         return (a.touchedOrder || 999) - (b.touchedOrder || 999);
       });
 
-    const selected = [];
-    const reserveNexus = this.agentMode === 'kc' && sfNodes.length > 0;
-    const maxBq = reserveNexus ? MAX_VISIBLE_EDGES - 1 : MAX_VISIBLE_EDGES;
-    for (let i = 0; i < bqNodes.length && selected.length < maxBq; i++) {
-      selected.push(bqNodes[i]);
+    if (this.agentMode === 'kc') {
+      const maxKcEdges = 6;
+      const selected = [];
+      const seen = new Set();
+
+      // 1. At least one edge reaches a cyan NEXUS node when Snowflake was queried/touched
+      if (sfNodes.length > 0) {
+        selected.push(sfNodes[0]);
+        seen.add(sfNodes[0].name);
+      }
+
+      // 2. Prioritize layer diversity across touched BigQuery layers (gold, silver, bronze, ref)
+      for (const layer of ['gold', 'silver', 'bronze', 'ref']) {
+        if (selected.length >= maxKcEdges) break;
+        const match = bqNodes.find(n => n.layer === layer && !seen.has(n.name));
+        if (match) {
+          selected.push(match);
+          seen.add(match.name);
+        }
+      }
+
+      // 3. Fill remaining slots up to 6 from other touched nodes
+      for (const n of bqNodes) {
+        if (selected.length >= maxKcEdges) break;
+        if (!seen.has(n.name)) {
+          selected.push(n);
+          seen.add(n.name);
+        }
+      }
+      for (const n of sfNodes) {
+        if (selected.length >= maxKcEdges) break;
+        if (!seen.has(n.name)) {
+          selected.push(n);
+          seen.add(n.name);
+        }
+      }
+
+      return selected.slice(0, maxKcEdges);
     }
-    if (reserveNexus && selected.length < MAX_VISIBLE_EDGES) {
-      selected.push(sfNodes[0]);
+
+    const selected = [];
+    for (let i = 0; i < bqNodes.length && selected.length < MAX_VISIBLE_EDGES; i++) {
+      selected.push(bqNodes[i]);
     }
     return selected.slice(0, MAX_VISIBLE_EDGES);
   }
@@ -314,6 +374,16 @@ class PointCloud {
     this.canvas.addEventListener('click', (e) => {
       const rect = this.canvas.getBoundingClientRect();
       const screenX = e.clientX - rect.left, screenY = e.clientY - rect.top;
+      const { x: wx, y: wy } = this._screenToWorld(screenX, screenY);
+      for (const tl of this._termLabelPositions) {
+        if (Math.abs(wx - tl.x) < tl.hw && Math.abs(wy - tl.y) < tl.hh) {
+          if (this.onTermClick) {
+            const sp = this._worldToScreen(tl.x, tl.y);
+            this.onTermClick(tl.term, sp.x + rect.left, sp.y + rect.top);
+          }
+          return;
+        }
+      }
       const node = this._hitTest(screenX, screenY);
       if (node && this.onNodeClick) {
         const sp = this._worldToScreen(node.x, node.y);
@@ -471,10 +541,12 @@ class PointCloud {
       ctx.stroke();
     }
 
-    // Active query-path edges ONLY: solid green (#3fb950), center -> touched nodes only, cap 5, 0 at idle
+    // Active query-path edges ONLY: solid green (#3fb950), center -> touched nodes only, cap 5 (6 for KC), 0 at idle
     const selectedTargets = this._getCappedEdgeTargets();
     this.renderedEdges = [];
     this.renderedLabels = [];
+    this.renderedGlossaryLabels = [];
+    this._termLabelPositions = [];
     ctx.setLineDash([]);
     for (const n of selectedTargets) {
       ctx.beginPath();
@@ -542,9 +614,8 @@ class PointCloud {
       }
     }
 
-    // Labels ONLY on touched nodes (selectedTargets, capped at 5, zero at idle)
+    // Labels ONLY on touched nodes + glossary edge label (KC)
     if (selectedTargets.length > 0) {
-      ctx.font = '10px system-ui';
       const placedRects = [];
       if (this.agentMode === 'kc' && TABLES.snowflake && TABLES.snowflake.length > 0) {
         const maxR = Math.min(this.cx, this.cy) * 0.85;
@@ -557,6 +628,62 @@ class PointCloud {
         });
       }
 
+      // Glossary term cited in Governance Context rendered as a small green floating text label near the relevant edge
+      if (this.agentMode === 'kc' && this.activeGlossaryTerm && this.activeGlossaryTerm.display) {
+        let edgeNode = null;
+        if (this.activeGlossaryTerm.targetTable) {
+          edgeNode = selectedTargets.find(n => n.name.toLowerCase() === this.activeGlossaryTerm.targetTable);
+        }
+        if (!edgeNode) {
+          edgeNode = selectedTargets.find(n => n.layer === 'gold') || selectedTargets[0];
+        }
+        if (edgeNode) {
+          ctx.font = '600 10px system-ui';
+          const gText = this.activeGlossaryTerm.display;
+          const gTw = ctx.measureText(gText).width;
+          const gLw = gTw + 10;
+          const gLh = 16;
+          const dx = edgeNode.x - this.cx;
+          const dy = edgeNode.y - this.cy;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const nx = -dy / dist;
+          const ny = dx / dist;
+          const midX = this.cx + dx * 0.52 + nx * 14;
+          const midY = this.cy + dy * 0.52 + ny * 14;
+          const gx1 = midX - gLw / 2;
+          const gy1 = midY - gLh / 2;
+
+          ctx.fillStyle = 'rgba(13,17,23,0.92)';
+          ctx.fillRect(gx1, gy1, gLw, gLh);
+          ctx.strokeStyle = 'rgba(63,185,80,0.88)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(gx1, gy1, gLw, gLh);
+          ctx.fillStyle = '#3fb950';
+          ctx.fillText(gText, gx1 + 5, gy1 + 11);
+
+          placedRects.push({ x1: gx1 - 3, y1: gy1 - 3, x2: gx1 + gLw + 3, y2: gy1 + gLh + 3 });
+          this._termLabelPositions.push({
+            term: this.activeGlossaryTerm.raw,
+            display: gText,
+            x: midX,
+            y: midY,
+            hw: gLw / 2,
+            hh: gLh / 2,
+          });
+          const gLabelObj = {
+            name: 'glossary:' + gText,
+            text: gText,
+            type: 'glossary',
+            edgeTo: edgeNode.name,
+            x: gx1,
+            y: gy1,
+          };
+          this.renderedGlossaryLabels.push(gLabelObj);
+          this.renderedLabels.push(gLabelObj);
+        }
+      }
+
+      ctx.font = '10px system-ui';
       const topLeft = this._screenToWorld(8, 8);
       const bottomRight = this._screenToWorld(this.w - 8, this.h - 8);
 
@@ -769,6 +896,9 @@ class PointCloud {
     }
     this.renderedEdges = [];
     this.renderedLabels = [];
+    this.renderedGlossaryLabels = [];
+    this.activeGlossaryTerm = null;
+    this._termLabelPositions = [];
     this.activeNodes = [];
     this._touchSeq = 0;
     this.metadataLines = [];

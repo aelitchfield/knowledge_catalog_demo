@@ -483,12 +483,19 @@ class ChatPanel {
         break;
 
       case 'tool_response':
+        if (this.agentMode === 'kc' && event.tables && event.tables.length > 0) {
+          const isPrimary = event.name === 'lookup_context' || event.name === 'run_sql' || event.name === 'query_snowflake';
+          this.viz.illuminateTables(event.tables.slice(0, 8), isPrimary);
+        }
         break;
 
       case 'text_chunk':
         this._hideTyping();
         this._hideWorkingStatus();
         this._appendText(event.text);
+        if (this.agentMode === 'kc') {
+          this._updateKcGovernanceGraph(this._currentAgentMsg?._rawText || '');
+        }
         break;
 
       case 'done': {
@@ -496,10 +503,21 @@ class ChatPanel {
         this._hideWorkingStatus();
         const rawText = this._currentAgentMsg?._rawText || '';
         const citedInAnswer = rawText.match(/\b((?:gold|silver|bronze|ref|nexus)_[a-z0-9_]+)\b/gi) || [];
-        if (citedInAnswer.length > 0) {
-          this.viz.illuminateTables(citedInAnswer.slice(0, 5), true);
-        } else if (this.viz.activeNodes.length === 0 && event.all_tables) {
-          this.viz.illuminateTables(event.all_tables.slice(0, 5), false);
+        if (this.agentMode === 'kc') {
+          const uniqueCited = [...new Set(citedInAnswer.map(t => t.toLowerCase()))];
+          if (uniqueCited.length > 0) {
+            this.viz.illuminateTables(uniqueCited.slice(0, 6), true);
+          }
+          if (this.viz.activeNodes.length < 4 && event.all_tables) {
+            this.viz.illuminateTables(event.all_tables, false);
+          }
+          this._updateKcGovernanceGraph(rawText, event.all_glossary);
+        } else {
+          if (citedInAnswer.length > 0) {
+            this.viz.illuminateTables(citedInAnswer.slice(0, 5), true);
+          } else if (this.viz.activeNodes.length === 0 && event.all_tables) {
+            this.viz.illuminateTables(event.all_tables.slice(0, 5), false);
+          }
         }
         this._finalizeResponse();
         this.viz.zoomToActive();
@@ -510,6 +528,61 @@ class ChatPanel {
         this._hideTyping();
         this._appendText(`Error: ${event.message}`);
         break;
+    }
+  }
+
+  _extractGovernanceGlossaryTerm(rawText, fallbackGlossary) {
+    if (!rawText) return null;
+    const govIdx = rawText.search(/Governance\s+Context/i);
+    const scope = govIdx >= 0 ? rawText.slice(govIdx) : rawText;
+
+    const bulletLineMatch = scope.match(/(?:^|\n)\s*[-*•]?\s*\*{0,2}Glossary\*{0,2}\s*(?:—|--|-|:)\s*([^\n]+)/i);
+    if (bulletLineMatch) {
+      const line = bulletLineMatch[1].trim();
+      const quoted = line.match(/[`"'](\[Retail\]\s*[^`"']{2,60}|[A-Z][A-Za-z0-9\s\/\-()&]{2,50})[`"']/);
+      if (quoted) {
+        return quoted[1].trim();
+      }
+      const retailPrefixed = line.match(/(\[Retail\]\s*[A-Za-z0-9\s\/\-()&]{2,50}?)(?:\s+—|\s+--|\s+-|\s*:|\s*\(|\s+is\b|\s+provides\b|\s+defines\b|\s+measures\b|\s+governs\b|\s+standardizes\b|\s+tracks\b|\s+represents\b|[.,;]|$)/i);
+      if (retailPrefixed) {
+        return retailPrefixed[1].trim();
+      }
+      for (const known of Object.keys(_GLOSSARY_TERMS || {})) {
+        const cleanKnown = known.replace(/^\[Retail\]\s*/i, '');
+        if (cleanKnown && line.toLowerCase().includes(cleanKnown.toLowerCase())) {
+          return known;
+        }
+      }
+    }
+
+    const anyRetail = scope.match(/[`"']?(\[Retail\]\s*[A-Za-z][A-Za-z0-9\s\/\-()&]{2,45}?)[`"']?(?:\s*\(|\s+—|\s+--|\s+-|[.,;:\n])/);
+    if (anyRetail) {
+      return anyRetail[1].trim();
+    }
+
+    for (const known of Object.keys(_GLOSSARY_TERMS || {})) {
+      const cleanKnown = known.replace(/^\[Retail\]\s*/i, '');
+      if (cleanKnown && scope.toLowerCase().includes(cleanKnown.toLowerCase())) {
+        return known;
+      }
+    }
+    if (Array.isArray(fallbackGlossary) && fallbackGlossary.length > 0) {
+      return fallbackGlossary[0];
+    }
+    return null;
+  }
+
+  _updateKcGovernanceGraph(rawText, fallbackGlossary) {
+    if (this.agentMode !== 'kc' || !this.viz) return;
+    const term = this._extractGovernanceGlossaryTerm(rawText, fallbackGlossary);
+    if (term) {
+      const govIdx = rawText.search(/Governance\s+Context/i);
+      const scope = govIdx >= 0 ? rawText.slice(govIdx) : rawText;
+      const bulletLineMatch = scope.match(/(?:^|\n)\s*[-*•]?\s*\*{0,2}Glossary\*{0,2}\s*(?:—|--|-|:)\s*([^\n]+)/i);
+      const tableInGlossary = bulletLineMatch
+        ? (bulletLineMatch[1].match(/\b((?:gold|silver|bronze|ref|nexus)_[a-z0-9_]+)\b/i) || [])[1]
+        : null;
+      this.viz.setGlossaryEdgeLabel(term, tableInGlossary || null);
     }
   }
 
