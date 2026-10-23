@@ -166,8 +166,9 @@ def _ae_url(agent_id):
     return f"{AE_BASE}/projects/{pn}/locations/{LOCATION}/reasoningEngines/{agent_id}"
 
 
-def _get_or_create_session(agent_id, user_id):
-    key = f"{agent_id}:{user_id}"
+def _get_or_create_session(agent_id, user_id, category="merchandising"):
+    cat_key = (category or "merchandising").strip().lower()
+    key = f"{agent_id}:{user_id}:{cat_key}"
     if key in _sessions:
         if time.time() - _session_times.get(key, 0) < _SESSION_TTL:
             return _sessions[key]
@@ -177,7 +178,7 @@ def _get_or_create_session(agent_id, user_id):
     try:
         token = _get_token()
         url = f"{_ae_url(agent_id)}:query"
-        logger.info("Creating session: POST %s for user=%s", url, user_id)
+        logger.info("Creating session: POST %s for user=%s category=%s", url, user_id, cat_key)
         resp = _get_http_session().post(
             url,
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
@@ -197,9 +198,54 @@ def _get_or_create_session(agent_id, user_id):
         return None
 
 
-def _extract_tables(text):
+_INTERNAL_SCOPE_INSTRUCTION = (
+    "\n\n[MANDATORY SCOPE GATE — INTERNAL BIGQUERY ONLY]\n"
+    "Active UI Tab: INTERNAL (Merchandising / Customer / Privacy).\n"
+    "Strict rules for this turn:\n"
+    "1. Do NOT call `query_snowflake`.\n"
+    "2. Do NOT search for or pass any `retail-nexus-market-intel` or `nexus_*` entry in `search_entries` or `lookup_context`.\n"
+    "3. Use ONLY internal BigQuery tables (`retail_gold.*`, `retail_silver.*`, `retail_bronze.*`, `retail_reference.*`).\n"
+    "4. Do NOT output the words `NEXUS`, `Snowflake`, `SYNDICATED_INTEL`, `Third-Party Licensed`, `Vendor Data License`, `#NWR-NEXUS-2026`, or `external market data` anywhere in your response (not even in negative disclaimers). In **Governance Context.**, cite only internal source systems (`ORION`, `LUMEN`, `HELIOS`) and internal sensitivity classifications (`Internal`, `Confidential`, `Restricted` under `PCI-DSS` / `CCPA`)."
+)
+
+_CROSS_CLOUD_SCOPE_INSTRUCTION = (
+    "\n\n[MANDATORY SCOPE GATE — CROSS-CLOUD TAB]\n"
+    "Active UI Tab: CROSS-CLOUD.\n"
+    "Strict rules for this turn:\n"
+    "1. You MUST call `query_snowflake` against at least one `NEXUS_MARKET_DATA.SYNDICATED_INTEL.NEXUS_*` table (such as `NEXUS_MARKET_DATA.SYNDICATED_INTEL.NEXUS_COMPETITOR_PRICES`), even if internal BigQuery tables alone could answer.\n"
+    "2. In `lookup_context`, you MUST inspect the corresponding NEXUS entry (`projects/alitch-ca-demo/locations/us/entryGroups/retail-nexus-market-intel/entries/nexus_*`) alongside at least one Bronze (`bronze_product_skus`), one Silver (`silver_product_skus` or `silver_inventory_positions`), and one Gold (`gold_inventory_allocation`) BigQuery table. Do NOT use internal `bronze_competitor_pricing` or `silver_competitor_pricing`.\n"
+    "3. Cite the `nexus_*` asset in **Data discovery.** and **Governance Context.** (including `NEXUS`, `Snowflake`, `Third-Party Licensed`, and `Vendor Data License #NWR-NEXUS-2026`)."
+)
+
+_CROSS_CLOUD_EXCLUDED_INTERNAL = {
+    "bronze_competitor_pricing",
+    "silver_competitor_pricing",
+    "snapshot_daily_competitor_pricing",
+}
+
+
+def _is_cross_cloud_category(category):
+    return str(category or "").strip().lower() in ("multicloud", "cross-cloud", "cross_cloud")
+
+
+def _build_scoped_question(agent_type, question, category):
+    if agent_type != "kc":
+        return question
+    if _is_cross_cloud_category(category):
+        return f"{question}{_CROSS_CLOUD_SCOPE_INSTRUCTION}"
+    return f"{question}{_INTERNAL_SCOPE_INSTRUCTION}"
+
+
+def _extract_tables(text, is_cross_cloud=False):
     lower = text.lower()
-    return [t for t in (ALL_TABLE_NAMES + _SNOWFLAKE_TABLES) if t in lower]
+    if is_cross_cloud:
+        candidates = [
+            t for t in (ALL_TABLE_NAMES + _SNOWFLAKE_TABLES)
+            if t not in _CROSS_CLOUD_EXCLUDED_INTERNAL
+        ]
+    else:
+        candidates = ALL_TABLE_NAMES
+    return [t for t in candidates if t in lower]
 
 
 def _extract_glossary_terms(text):
@@ -211,7 +257,7 @@ def _extract_glossary_terms(text):
     return list(terms)
 
 
-def _parse_stream_chunk(raw_text):
+def _parse_stream_chunk(raw_text, is_cross_cloud=False):
     """Parse a single streamQuery response line into typed events."""
     events = []
     try:
@@ -231,13 +277,13 @@ def _parse_stream_chunk(raw_text):
                 "type": "tool_call",
                 "name": fc.get("name", ""),
                 "args": args,
-                "tables": _extract_tables(args_text),
+                "tables": _extract_tables(args_text, is_cross_cloud=is_cross_cloud),
             })
         elif "function_response" in part:
             fr = part["function_response"]
             resp_data = fr.get("response", {})
             result_text = resp_data.get("result", str(resp_data))
-            tables = _extract_tables(result_text)
+            tables = _extract_tables(result_text, is_cross_cloud=is_cross_cloud)
             glossary = _extract_glossary_terms(result_text)
             events.append({
                 "type": "tool_response",
@@ -340,10 +386,11 @@ def reset_session():
     else:
         return jsonify({"status": "ok"})
 
-    key = f"{agent_id}:{user_id}"
-    _sessions.pop(key, None)
-    _session_times.pop(key, None)
-    logger.info("Reset session: %s", key)
+    prefix = f"{agent_id}:{user_id}"
+    for k in [k for k in list(_sessions.keys()) if k == prefix or k.startswith(f"{prefix}:")]:
+        _sessions.pop(k, None)
+        _session_times.pop(k, None)
+    logger.info("Reset session prefix: %s", prefix)
     return jsonify({"status": "ok"})
 
 
@@ -770,6 +817,9 @@ try:
             msg = json.loads(raw)
             agent_type = msg.get("agent", "basic")
             question = msg.get("question", "")
+            category = msg.get("category", "merchandising")
+            is_cross_cloud = _is_cross_cloud_category(category)
+            scoped_question = _build_scoped_question(agent_type, question, category)
             agent_id = AGENT_IDS.get(agent_type, "")
 
             if not agent_id:
@@ -780,7 +830,7 @@ try:
             ws.send(json.dumps({"type": "status", "message": "Connecting to agent..."}))
 
             try:
-                session_id = _get_or_create_session(agent_id, user_id)
+                session_id = _get_or_create_session(agent_id, user_id, category=category)
                 if not session_id:
                     ws.send(json.dumps({"type": "error", "message": "Failed to create session"}))
                     continue
@@ -792,7 +842,7 @@ try:
                     json={
                         "class_method": "async_stream_query",
                         "input": {
-                            "message": question,
+                            "message": scoped_question,
                             "user_id": user_id,
                             "session_id": session_id,
                         },
@@ -816,7 +866,7 @@ try:
                     if not text:
                         continue
 
-                    events = _parse_stream_chunk(text)
+                    events = _parse_stream_chunk(text, is_cross_cloud=is_cross_cloud)
                     for event in events:
                         if event["type"] in ("tool_call", "tool_response"):
                             all_tables.extend(event.get("tables", []))

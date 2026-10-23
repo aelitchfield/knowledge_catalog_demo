@@ -1,7 +1,15 @@
 # STATE.md — Retail KC Demo Refactor Memory
 
-## RESUME HERE — 2026-10-23 (Phase O1 Complete & Verified on Cloud Run `retail-kc-demo-ui-live-00011-n5f`)
+## RESUME HERE — 2026-10-23 (Phase O2 Complete & Verified on Cloud Run `retail-kc-demo-ui-live-00012-wsj`)
 
+- **Phase O2 Status**: **COMPLETE & VERIFIED**.
+  - Implemented the **no-agent-redeploy** bidirectional NEXUS scope gate across [`website-live/static/index.html`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/index.html), [`website-live/static/chat.js`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/chat.js), [`website-live/static/visualization.js`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/visualization.js), and [`website-live/app.py`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/app.py).
+  - UI passes active `category` (`merchandising` / `customer` / `privacy` / `multicloud`) in the `/ws/chat` payload while rendering only the clean user question in the chat bubble; `app.py` isolates Vertex AI sessions per category (`f"{agent_id}:{user_id}:{cat_key}"`), appends `_INTERNAL_SCOPE_INSTRUCTION` or `_CROSS_CLOUD_SCOPE_INSTRUCTION` server-side for `kc`, and filters extracted tables by tab scope.
+  - Deployed Cloud Run revision `retail-kc-demo-ui-live-00012-wsj` (rollback: `retail-kc-demo-ui-live-00011-n5f`) and verified headlessly (`tools/verify_phase_o2.py` → `logs/o2_verify.json`, `--password-store=basic --use-mock-keychain`):
+    - `Merchandising #4`: `query_snowflake=N`, `NEXUS mentioned=N`, `edges=6`
+    - `Customer #4`: `query_snowflake=N`, `NEXUS mentioned=N`, `edges=6`
+    - `Privacy #4`: `query_snowflake=N`, `NEXUS mentioned=N`, `edges=6`
+    - `Cross-Cloud #2`: `query_snowflake=Y`, `NEXUS mentioned=Y`, `edges=6` (`nexus_competitor_prices` reached)
 - **Phase O1 Status**: **COMPLETE & VERIFIED**.
   - Edited [`website-live/static/index.html`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/index.html#L226-L250) to remove both the `.nexus-tab-badge` (`[Simulated connector — NEXUS reference data]`) on the `CROSS-CLOUD` tab and the `.cross-cloud-banner` DOM element (`◆ NEXUS · Snowflake (External): Simulated connector — NEXUS reference data`).
   - Known-good rollback Cloud Run revision recorded before deploy: `retail-kc-demo-ui-live-00010-877`.

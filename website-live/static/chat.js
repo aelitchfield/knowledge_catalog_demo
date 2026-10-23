@@ -107,6 +107,7 @@ class ChatPanel {
     this.sendBtn = document.getElementById('sendBtn');
     this.typingEl = document.getElementById('typingIndicator');
     this.agentMode = 'basic';
+    this.activeCategory = 'merchandising';
     this.projectId = '';
     this.staticData = null;
     this.liveMode = false;
@@ -202,6 +203,10 @@ class ChatPanel {
       container.style.display = key === mode ? 'flex' : 'none';
     }
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+  }
+
+  setCategory(category) {
+    this.activeCategory = category || 'merchandising';
   }
 
   _activeContainer() {
@@ -394,9 +399,25 @@ class ChatPanel {
     }
   }
 
-  async send(presetText) {
+  _filterTablesForScope(tables) {
+    if (!Array.isArray(tables)) return [];
+    const isCrossCloud = this.activeCategory === 'multicloud';
+    if (!isCrossCloud) {
+      return tables.filter(t => !String(t).toLowerCase().startsWith('nexus_'));
+    }
+    const excludedInternal = new Set([
+      'bronze_competitor_pricing',
+      'silver_competitor_pricing',
+      'snapshot_daily_competitor_pricing',
+    ]);
+    return tables.filter(t => !excludedInternal.has(String(t).toLowerCase()));
+  }
+
+  async send(presetText, category) {
     const text = (typeof presetText === 'string' ? presetText : this.inputEl.value).trim();
     if (!text) return;
+    if (category) this.activeCategory = category;
+    const cat = this.activeCategory || 'merchandising';
     this.inputEl.value = '';
     this.sendBtn.disabled = true;
     this._addMessage(text, true);
@@ -410,14 +431,15 @@ class ChatPanel {
     }
 
     if (this.liveMode) {
-      await this._sendWebSocket(text);
+      await this._sendWebSocket(text, cat);
     } else {
       await this._sendStatic(text);
     }
     this.sendBtn.disabled = false;
   }
 
-  async _sendWebSocket(question) {
+  async _sendWebSocket(question, category) {
+    const cat = category || this.activeCategory || 'merchandising';
     if (this.ws) {
       try { this.ws.onclose = null; this.ws.onerror = null; this.ws.close(); } catch (e) {}
       this.ws = null;
@@ -440,7 +462,7 @@ class ChatPanel {
       };
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ agent: this.agentMode, question }));
+        ws.send(JSON.stringify({ agent: this.agentMode, question, category: cat }));
       };
 
       ws.onmessage = (e) => {
@@ -471,23 +493,27 @@ class ChatPanel {
         this._getOrCreateAgentMsg();
         break;
 
-      case 'tool_call':
+      case 'tool_call': {
         this._addToolChip(event.name);
         this._updateWorkingStatus(event.name);
         if (event.name === 'search_entries') {
           this.viz.triggerSearchPulse();
         }
-        if (event.tables && event.tables.length > 0) {
-          this.viz.illuminateTables(event.tables, true);
+        const scopedTables = this._filterTablesForScope(event.tables);
+        if (scopedTables.length > 0) {
+          this.viz.illuminateTables(scopedTables, true);
         }
         break;
+      }
 
-      case 'tool_response':
-        if (this.agentMode === 'kc' && event.tables && event.tables.length > 0) {
+      case 'tool_response': {
+        const scopedTables = this._filterTablesForScope(event.tables);
+        if (this.agentMode === 'kc' && scopedTables.length > 0) {
           const isPrimary = event.name === 'lookup_context' || event.name === 'run_sql' || event.name === 'query_snowflake';
-          this.viz.illuminateTables(event.tables.slice(0, 8), isPrimary);
+          this.viz.illuminateTables(scopedTables.slice(0, 8), isPrimary);
         }
         break;
+      }
 
       case 'text_chunk':
         this._hideTyping();
@@ -502,21 +528,24 @@ class ChatPanel {
         this._hideTyping();
         this._hideWorkingStatus();
         const rawText = this._currentAgentMsg?._rawText || '';
-        const citedInAnswer = rawText.match(/\b((?:gold|silver|bronze|ref|nexus)_[a-z0-9_]+)\b/gi) || [];
+        const citedInAnswer = this._filterTablesForScope(
+          rawText.match(/\b((?:gold|silver|bronze|ref|nexus)_[a-z0-9_]+)\b/gi) || []
+        );
+        const scopedAllTables = this._filterTablesForScope(event.all_tables || []);
         if (this.agentMode === 'kc') {
           const uniqueCited = [...new Set(citedInAnswer.map(t => t.toLowerCase()))];
           if (uniqueCited.length > 0) {
             this.viz.illuminateTables(uniqueCited.slice(0, 6), true);
           }
-          if (this.viz.activeNodes.length < 4 && event.all_tables) {
-            this.viz.illuminateTables(event.all_tables, false);
+          if (this.viz.activeNodes.length < 4 && scopedAllTables.length > 0) {
+            this.viz.illuminateTables(scopedAllTables, false);
           }
           this._updateKcGovernanceGraph(rawText, event.all_glossary);
         } else {
           if (citedInAnswer.length > 0) {
             this.viz.illuminateTables(citedInAnswer.slice(0, 5), true);
-          } else if (this.viz.activeNodes.length === 0 && event.all_tables) {
-            this.viz.illuminateTables(event.all_tables.slice(0, 5), false);
+          } else if (this.viz.activeNodes.length === 0 && scopedAllTables.length > 0) {
+            this.viz.illuminateTables(scopedAllTables.slice(0, 5), false);
           }
         }
         this._finalizeResponse();
@@ -622,10 +651,11 @@ class ChatPanel {
     return bestScore >= 2 ? best : null;
   }
 
-  sendPreset(question) {
+  sendPreset(question, category) {
     if (!question) return;
+    if (category) this.activeCategory = category;
     this.inputEl.value = '';
-    return this.send(question);
+    return this.send(question, this.activeCategory);
   }
 
   async resetSession() {

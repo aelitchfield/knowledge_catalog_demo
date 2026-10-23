@@ -19,6 +19,7 @@ class PointCloud {
     this.nodes = [];
     this.nodeMap = {};
     this.agentMode = 'basic';
+    this.activeCategory = 'merchandising';
     this.activeNodes = [];
     this.renderedEdges = [];
     this.fadingEdges = [];
@@ -223,13 +224,18 @@ class PointCloud {
     this._positionNodes();
   }
 
+  setCategory(category) {
+    this.activeCategory = category || 'merchandising';
+  }
+
   triggerQuery(tablesUsed, toolCalls, metadataCited, lineagePath, glossaryTermsCited) {
     this.clearAnimation();
     const used = new Set(tablesUsed || []);
     let seq = 1;
+    const allowSnowflake = this.agentMode === 'kc' && this.activeCategory === 'multicloud';
     this.activeNodes = this.nodes.filter(n => {
       if (!used.has(n.name)) return false;
-      if (n.layer === 'snowflake' && this.agentMode !== 'kc') return false;
+      if (n.layer === 'snowflake' && !allowSnowflake) return false;
       n.queriedBySql = true;
       n.touchedOrder = seq++;
       return true;
@@ -266,8 +272,9 @@ class PointCloud {
 
   _getCappedEdgeTargets() {
     const tierPriority = { gold: 0, silver: 1, bronze: 2, ref: 3 };
+    const allowSnowflake = this.agentMode === 'kc' && this.activeCategory === 'multicloud';
     const candidates = this.activeNodes.filter(
-      n => n.glow > 0.3 && (this.agentMode === 'kc' || n.layer !== 'snowflake')
+      n => n.glow > 0.3 && (allowSnowflake || n.layer !== 'snowflake')
     );
     if (candidates.length === 0) return [];
 
@@ -834,7 +841,7 @@ class PointCloud {
   illuminateTable(tableName, isPrimary = false) {
     const node = this._findNode(tableName);
     if (!node) return;
-    if (node.layer === 'snowflake' && this.agentMode !== 'kc') return;
+    if (node.layer === 'snowflake' && (this.agentMode !== 'kc' || this.activeCategory !== 'multicloud')) return;
     node.glow = 1;
     node.alpha = 1;
     if (isPrimary) node.queriedBySql = true;
