@@ -1,6 +1,12 @@
 # STATE.md — Retail KC Demo Refactor Memory
 
-## RESUME HERE — 2026-10-22 (Phases I-A, I-B, and I-C Complete, Deployed to Cloud Run, and 40/40 Chips Verified)
+## RESUME HERE — 2026-10-23 (Phase L Complete & Verified Across All `retail_*` and `retail_*_nokc` Datasets)
+
+- **Phase L Status**: **COMPLETE** across all 16 BigQuery datasets (`retail_bronze`, `retail_silver`, `retail_gold`, `retail_reference`, `retail_dashboards`, `retail_staging`, `retail_snapshots`, `retail_audit` and `retail_bronze_nokc`, `retail_silver_nokc`, `retail_gold_nokc`, `retail_reference_nokc`, `retail_dashboards_nokc`, `retail_staging_nokc`, `retail_snapshots_nokc`, `retail_audit_nokc`).
+  - `INFORMATION_SCHEMA.COLUMNS` check across all 16 datasets: **0 tables / 0 columns** with old names (`avg_sharpe_ratio`, `total_return_pct`, `unrealized_gain_loss`, `cost_basis`, `market_value`); **22 tables / 44 columns** with new names (`gmroi`, `sell_through_pct`, `markdown_exposure`, `inventory_at_cost`, `current_retail_value`).
+  - `gold_assortment_performance` deduplicated to 12 unique assortments (`gmroi` = `2.08–3.85`, `sell_through_pct` = `0.4384–0.8455`); intentional DQ defects re-injected (`scripts/15_inject_dirty_data.py`) and DQ rescans triggered.
+- **Next**: Verify `Merchandising #4` shows GMROI `2.0–4.0` with no FSI columns (verified in `logs/l_verify.json`: GMROI `2.08–2.44` across 5 unique seasonal assortments, zero FSI columns).
+- **Then**: Phase M 40-chip sweep, Phase N demo script, then push.
 
 ### DONE
 - **P0–P6 + Phases A–E + F1–F5 + Phase G1-F + Phases I-A, I-B, I-C Complete**: 18 BigQuery datasets (`10` governed `retail_*` + `8` `retail_*_nokc` shadow), 128 tables/views, 9 Dataplex governance pillars, 6 NEXUS cross-cloud catalog entries + 14 lineage links, 3 Vertex AI Agent Engine instances (`basic=2946493525224587264`, `scaled=1975967805526245376`, `kc=8060330902103785472`), and live Cloud Run UI (`https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`, revision `retail-kc-demo-ui-live-00008-*`, rollback `retail-kc-demo-ui-live-00007-cdz`).
