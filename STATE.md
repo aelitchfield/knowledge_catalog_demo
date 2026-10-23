@@ -1,7 +1,15 @@
 # STATE.md — Retail KC Demo Refactor Memory
 
-## RESUME HERE — 2026-10-23 (Phase P Complete & Verified on Cloud Run `retail-kc-demo-ui-live-00013-qvw`)
+## RESUME HERE — 2026-10-23 (Phase Q1 Complete & Verified on Cloud Run `retail-kc-demo-ui-live-00015-dkx`)
 
+- **Phase Q1 Status (Enable ADK SSE Streaming)**: **COMPLETE & VERIFIED** (waiting for user decision on whether to proceed to Q2).
+  - Updated [`agents/agent_kc/agent.py`](file:///home/aelitchfield/knowledge_catalog_demo/agents/agent_kc/agent.py) to default `RunConfig.streaming_mode = StreamingMode.SSE` and redeployed `retail-agent-kc` (`8060330902103785472`) via [`tools/deploy_kc_agent.py`](file:///home/aelitchfield/knowledge_catalog_demo/tools/deploy_kc_agent.py).
+  - Updated [`website-live/app.py`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/app.py) (`_parse_stream_chunk` with `sse_mode=True` and `"run_config": {"streaming_mode": "sse"}` for `kc`) so partial token deltas (`partial=True`) stream live to the client while the turn-end aggregated duplicate (`partial=False`) and duplicate `partial=True` `function_call` events are filtered out.
+  - Updated [`website-live/static/chat.js`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/chat.js) and [`website-live/static/index.html`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/index.html) (`?v=11`) and deployed Cloud Run revision `retail-kc-demo-ui-live-00015-dkx` (rollback: `retail-kc-demo-ui-live-00013-qvw`).
+  - Re-ran P2 instrumentation on `Cross-Cloud #2` via [`tools/verify_phase_q1.py`](file:///home/aelitchfield/knowledge_catalog_demo/tools/verify_phase_q1.py) (`logs/q1_verify.json`):
+    - **Time to first visible character (`first_token`)**: **`3,716 ms` phase (`27,107 ms` cumulative from click)** — down from `21,065 ms` phase (`44,860 ms` cumulative) in Phase P2 (meets `< 5s` phase target; first character appears **17.8s earlier**).
+    - **`last_token - first_token`**: **`7,418 ms`** across **28 live streamed chunks** (vs `0 ms` / 1 chunk in Phase P2).
+    - **Total time**: `36,432 ms` (down from `45,411 ms`), `6` graph edges drawn progressively.
 - **Phase P Status**: **COMPLETE & VERIFIED**.
   - **P1 (Cloud Run cold starts)**: `retail-kc-demo-ui-live` in `us-central1` already had `autoscaling.knative.dev/minScale: '1'` (before: `1`, after: `1`).
   - **P2 (Per-phase elapsed-ms instrumentation in [`website-live/app.py`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/app.py))**:

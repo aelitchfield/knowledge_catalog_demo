@@ -212,7 +212,7 @@ _CROSS_CLOUD_SCOPE_INSTRUCTION = (
     "\n\n[MANDATORY SCOPE GATE — CROSS-CLOUD TAB]\n"
     "Active UI Tab: CROSS-CLOUD.\n"
     "Strict rules for this turn:\n"
-    "1. You MUST call `query_snowflake` against at least one `NEXUS_MARKET_DATA.SYNDICATED_INTEL.NEXUS_*` table (such as `NEXUS_MARKET_DATA.SYNDICATED_INTEL.NEXUS_COMPETITOR_PRICES`), even if internal BigQuery tables alone could answer.\n"
+    "1. You MUST invoke BOTH the `query_snowflake` tool (against at least one `NEXUS_MARKET_DATA.SYNDICATED_INTEL.NEXUS_*` table such as `NEXUS_MARKET_DATA.SYNDICATED_INTEL.NEXUS_COMPETITOR_PRICES`) AND the `run_sql` tool (against internal BigQuery tables) BEFORE generating your text response. Never skip calling `query_snowflake` or `run_sql`.\n"
     "2. In `lookup_context`, you MUST inspect the corresponding NEXUS entry (`projects/alitch-ca-demo/locations/us/entryGroups/retail-nexus-market-intel/entries/nexus_*`) alongside at least one Bronze (`bronze_product_skus`), one Silver (`silver_product_skus` or `silver_inventory_positions`), and one Gold (`gold_inventory_allocation`) BigQuery table. Do NOT use internal `bronze_competitor_pricing` or `silver_competitor_pricing`.\n"
     "3. Cite the `nexus_*` asset in **Data discovery.** and **Governance Context.** (including `NEXUS`, `Snowflake`, `Third-Party Licensed`, and `Vendor Data License #NWR-NEXUS-2026`)."
 )
@@ -273,7 +273,7 @@ def _iter_stream_lines(resp):
         yield buf.strip().decode("utf-8", errors="replace")
 
 
-def _parse_stream_chunk(raw_text, is_cross_cloud=False):
+def _parse_stream_chunk(raw_text, is_cross_cloud=False, sse_mode=False):
     """Parse a single streamQuery response line into typed events."""
     events = []
     try:
@@ -281,11 +281,16 @@ def _parse_stream_chunk(raw_text, is_cross_cloud=False):
     except json.JSONDecodeError:
         return events
 
+    is_partial = bool(data.get("partial"))
     content = data.get("content", {})
     parts = content.get("parts", [])
 
     for part in parts:
         if "function_call" in part:
+            # In ADK SSE mode, function_call is emitted twice (partial=True then partial=False).
+            # Emit tool_call only on the finalized event to avoid duplicate tool chips.
+            if is_partial:
+                continue
             fc = part["function_call"]
             args = fc.get("args", {})
             args_text = str(args)
@@ -307,7 +312,11 @@ def _parse_stream_chunk(raw_text, is_cross_cloud=False):
                 "tables": tables,
                 "glossary_terms": glossary,
             })
-        elif "text" in part:
+        elif "text" in part and part["text"] and not part.get("thought"):
+            # In ADK SSE mode, all tokens stream as partial=True and partial=False is the
+            # turn-end aggregate duplicate saved to the session.
+            if sse_mode and not is_partial:
+                continue
             events.append({
                 "type": "text_chunk",
                 "text": part["text"],
@@ -860,16 +869,19 @@ try:
                     continue
 
                 token = _get_token()
+                stream_input = {
+                    "message": scoped_question,
+                    "user_id": user_id,
+                    "session_id": session_id,
+                }
+                if agent_type == "kc":
+                    stream_input["run_config"] = {"streaming_mode": "sse"}
                 resp = _get_http_session().post(
                     f"{_ae_url(agent_id)}:streamQuery",
                     headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
                     json={
                         "class_method": "async_stream_query",
-                        "input": {
-                            "message": scoped_question,
-                            "user_id": user_id,
-                            "session_id": session_id,
-                        },
+                        "input": stream_input,
                     },
                     stream=True,
                     timeout=300,
@@ -887,9 +899,10 @@ try:
                 pending_tool_t = {}
                 first_token_ms = None
                 last_token_ms = None
+                sse_mode = (agent_type == "kc")
 
                 for text in _iter_stream_lines(resp):
-                    events = _parse_stream_chunk(text, is_cross_cloud=is_cross_cloud)
+                    events = _parse_stream_chunk(text, is_cross_cloud=is_cross_cloud, sse_mode=sse_mode)
                     for event in events:
                         now = time.perf_counter()
                         elapsed_ms = round((now - t0) * 1000)

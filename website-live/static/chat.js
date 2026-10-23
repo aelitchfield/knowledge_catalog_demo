@@ -266,8 +266,10 @@ class ChatPanel {
       this._currentAgentMsg._statusHistory = [];
       this._currentAgentMsg._chipTimeline = [];
       this._currentAgentMsg._edgeTimeline = [];
+      this._currentAgentMsg._textChunkTimeline = [];
       this._currentAgentMsg._pendingTools = 0;
       this._currentAgentMsg._sqlToolsCompleted = new Set();
+      this._currentAgentMsg._needsNewlineBeforeText = false;
       this._activeContainer().appendChild(this._currentAgentMsg);
     }
     return this._currentAgentMsg;
@@ -297,9 +299,23 @@ class ChatPanel {
     }
   }
 
-  _appendText(text) {
+  _appendText(text, serverElapsedMs) {
     const msg = this._getOrCreateAgentMsg();
+    if (msg._needsNewlineBeforeText) {
+      if (msg._rawText && !msg._rawText.endsWith('\n') && !String(text || '').startsWith('\n')) {
+        msg._rawText += '\n\n';
+      }
+      msg._needsNewlineBeforeText = false;
+    }
     msg._rawText += text;
+    if (msg._textChunkTimeline) {
+      msg._textChunkTimeline.push({
+        index: msg._textChunkTimeline.length,
+        length: String(text || '').length,
+        rendered_at_ms: Math.round(performance.now()),
+        server_elapsed_ms: serverElapsedMs ?? null,
+      });
+    }
     const rendered = _renderMarkdown(msg._rawText);
     _linkifyEntities(rendered, this.agentMode, this.projectId);
     msg._rendered.replaceChildren(rendered);
@@ -312,6 +328,8 @@ class ChatPanel {
   _updateWorkingStatus(toolName) {
     const msg = this._getOrCreateAgentMsg();
     if (!msg._status) return;
+    msg.classList.add('working');
+    msg._status.style.display = '';
     const labels = {
       search_entries: 'Searching Knowledge Catalog...',
       lookup_context: 'Reading table metadata...',
@@ -328,7 +346,7 @@ class ChatPanel {
     }
   }
 
-  _hideWorkingStatus() {
+  _hideWorkingStatus(removeNode = false) {
     if (this._composingTimer) {
       clearTimeout(this._composingTimer);
       this._composingTimer = null;
@@ -336,8 +354,12 @@ class ChatPanel {
     if (this._currentAgentMsg) {
       this._currentAgentMsg.classList.remove('working');
       if (this._currentAgentMsg._status) {
-        this._currentAgentMsg._status.remove();
-        this._currentAgentMsg._status = null;
+        if (removeNode) {
+          this._currentAgentMsg._status.remove();
+          this._currentAgentMsg._status = null;
+        } else {
+          this._currentAgentMsg._status.style.display = 'none';
+        }
       }
     }
   }
@@ -528,6 +550,9 @@ class ChatPanel {
           this._composingTimer = null;
         }
         const msg = this._getOrCreateAgentMsg();
+        if (msg._rawText && !msg._rawText.endsWith('\n')) {
+          msg._needsNewlineBeforeText = true;
+        }
         msg._pendingTools = (msg._pendingTools || 0) + 1;
         this._addToolChip(event.name, event.elapsed_ms);
         this._updateWorkingStatus(event.name);
@@ -591,8 +616,8 @@ class ChatPanel {
 
       case 'text_chunk':
         this._hideTyping();
-        this._hideWorkingStatus();
-        this._appendText(event.text);
+        this._hideWorkingStatus(false);
+        this._appendText(event.text, event.elapsed_ms);
         if (this.agentMode === 'kc') {
           this._updateKcGovernanceGraph(this._currentAgentMsg?._rawText || '');
         }
@@ -600,7 +625,7 @@ class ChatPanel {
 
       case 'done': {
         this._hideTyping();
-        this._hideWorkingStatus();
+        this._hideWorkingStatus(true);
         if (this._currentAgentMsg && event.phase_timings) {
           this._currentAgentMsg._phaseTimings = event.phase_timings;
         }

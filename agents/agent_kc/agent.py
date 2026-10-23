@@ -29,6 +29,7 @@ os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 from google.adk import Agent, Runner
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.apps import App
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools import FunctionTool
@@ -38,6 +39,10 @@ from google.adk.plugins.bigquery_agent_analytics_plugin import BigQueryAgentAnal
 from google.cloud import bigquery
 import google.auth
 import google.auth.transport.requests
+
+# Enable ADK SSE token-by-token streaming by default on the KC agent runtime
+RunConfig.model_fields["streaming_mode"].default = StreamingMode.SSE
+RunConfig.model_rebuild(force=True)
 
 _raw_proj = os.environ.get("GOOGLE_CLOUD_PROJECT", "alitch-ca-demo")
 PROJECT_ID = "alitch-ca-demo" if (not _raw_proj or _raw_proj.isdigit()) else _raw_proj
@@ -436,9 +441,12 @@ async def run_interactive():
             content = types.Content(role="user", parts=[types.Part.from_text(text=question)])
             print("\nAgent: ", end="", flush=True)
             async for event in runner.run_async(
-                session_id=session.id, user_id="demo_user", new_message=content
+                session_id=session.id,
+                user_id="demo_user",
+                new_message=content,
+                run_config=RunConfig(streaming_mode=StreamingMode.SSE),
             ):
-                if event.content and event.content.parts:
+                if getattr(event, "partial", False) and event.content and event.content.parts:
                     for part in event.content.parts:
                         if part.text:
                             print(part.text, end="", flush=True)
