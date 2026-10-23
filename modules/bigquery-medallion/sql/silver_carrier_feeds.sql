@@ -7,7 +7,7 @@ SELECT
   as_of_date,
   security_id,
   ROUND(ABS(quantity), 4) AS quantity,
-  ROUND(ABS(market_value), 2) AS market_value,
+  ROUND(ABS(current_retail_value), 2) AS current_retail_value,
   reconciliation_status,
   ROUND(break_amount, 2) AS break_amount,
   CASE WHEN ABS(break_amount) > 0.01 THEN TRUE ELSE FALSE END AS has_break,

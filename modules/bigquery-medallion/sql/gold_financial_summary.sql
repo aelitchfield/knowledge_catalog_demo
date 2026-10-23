@@ -11,7 +11,7 @@ SELECT 'Assets', 'Active BNPL Installment Receivables',
 FROM `${project_id}.retail_silver.silver_bnpl_plans`
 UNION ALL
 SELECT 'Assets', 'Merchandise Inventory at Market Value',
-  ROUND(SUM(market_value), 0)
+  ROUND(SUM(current_retail_value), 0)
 FROM `${project_id}.retail_silver.silver_inventory_positions`
 UNION ALL
 SELECT 'Liabilities', 'Unredeemed Loyalty & Gift Wallet Liability',
@@ -20,7 +20,7 @@ FROM `${project_id}.retail_silver.silver_loyalty_accounts`
 WHERE account_status = 'Active'
 UNION ALL
 SELECT 'Liabilities', 'Supply Chain & Trade Payables',
-  ROUND(SUM(cost_basis) * 0.35, 0)
+  ROUND(SUM(inventory_at_cost) * 0.35, 0)
 FROM `${project_id}.retail_silver.silver_inventory_positions`
 UNION ALL
 SELECT 'Operating Equity', 'Total Retail Operating Equity',

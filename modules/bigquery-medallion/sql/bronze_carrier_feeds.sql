@@ -7,7 +7,7 @@ SELECT
   DATE_ADD('2024-01-01', INTERVAL CAST(FLOOR(RAND() * 500) AS INT64) DAY) AS as_of_date,
   CONCAT('SEC-', LPAD(CAST(CAST(FLOOR(RAND() * 5000) + 1 AS INT64) AS STRING), 6, '0')) AS security_id,
   ROUND(RAND() * 10000, 4) AS quantity,
-  ROUND(RAND() * 5000, 2) AS market_value,
+  ROUND(RAND() * 5000, 2) AS current_retail_value,
   CASE MOD(n, 3)
     WHEN 0 THEN 'Reconciled' WHEN 1 THEN 'Unreconciled' ELSE 'Reconciled'
   END AS reconciliation_status,

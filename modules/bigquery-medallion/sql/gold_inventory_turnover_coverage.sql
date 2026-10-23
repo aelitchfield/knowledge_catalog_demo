@@ -11,9 +11,9 @@ WITH loyalty_redemptions AS (
 hqla AS (
   SELECT
     DATE_TRUNC(as_of_date, QUARTER) AS quarter,
-    SUM(CASE WHEN security_type IN ('Core Essentials', 'Beauty & Personal Care') THEN market_value ELSE 0 END) AS level_1_hqla,
-    SUM(CASE WHEN security_type = 'Outdoor & Activewear' THEN market_value * 0.85 ELSE 0 END) AS level_2a_hqla,
-    SUM(CASE WHEN security_type = 'Home & Living' AND credit_rating IN ('AAA', 'AA', 'Tier-1 Certified', 'Preferred Vendor') THEN market_value * 0.5 ELSE 0 END) AS level_2b_hqla
+    SUM(CASE WHEN security_type IN ('Core Essentials', 'Beauty & Personal Care') THEN current_retail_value ELSE 0 END) AS level_1_hqla,
+    SUM(CASE WHEN security_type = 'Outdoor & Activewear' THEN current_retail_value * 0.85 ELSE 0 END) AS level_2a_hqla,
+    SUM(CASE WHEN security_type = 'Home & Living' AND credit_rating IN ('AAA', 'AA', 'Tier-1 Certified', 'Preferred Vendor') THEN current_retail_value * 0.5 ELSE 0 END) AS level_2b_hqla
   FROM `${project_id}.retail_silver.silver_product_skus` s
   JOIN `${project_id}.retail_silver.silver_inventory_positions` h ON s.security_id = h.security_id
   GROUP BY 1

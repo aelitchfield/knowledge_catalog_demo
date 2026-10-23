@@ -151,6 +151,17 @@
     - Zero edges at idle; clears on new query; faint dashed cyan inside NEXUS cluster stays as texture only.
   - Headless Chrome verification on `retail-kc-demo-ui-live-00010-877` (`tools/verify_phase_ib.py`, `--password-store=basic --use-mock-keychain`): `edges_drawn = 6`, `labels_visible = 7` (6 touched node labels + 1 glossary edge label).
 
+- **Phase L (Targeted Column Rename + Realistic GMROI + Duplicate Assortment Fix)**: COMPLETE & VERIFIED.
+  - Renamed 5 FSI columns that surfaced in demo output across 16 SQL files (`tools/apply_phase_l.py`) and in-place in BigQuery (`ALTER TABLE ... RENAME COLUMN IF EXISTS ... TO ...` on both `retail_*` and `retail_*_nokc`):
+    - `avg_sharpe_ratio` → `gmroi`
+    - `total_return_pct` → `sell_through_pct`
+    - `unrealized_gain_loss` → `markdown_exposure`
+    - `cost_basis` → `inventory_at_cost`
+    - `market_value` → `current_retail_value`
+  - Regenerated `gmroi` as `ROUND(SAFE_DIVIDE(current_retail_value - inventory_at_cost, inventory_at_cost), 2)` (`gross_margin / avg_inventory_cost`) in `[2.08, 3.85]` (never negative) and `sell_through_pct` in `[0.4384, 0.8455]` (`43.84%–84.55%`), internally consistent with `current_retail_value`, `inventory_at_cost`, and `markdown_exposure`.
+  - Fixed duplicate `"Seasonal Holiday Gifting"` rows in `gold_assortment_performance` (caused by `bronze_merch_assortments` cycling through 8 static names across 15,000 `PORT-*` rows without deduplicating by `assortment_name` in `gold_assortment_performance`) by expanding to 12 distinct retail assortment names and adding `QUALIFY ROW_NUMBER() OVER (PARTITION BY p.assortment_name ORDER BY COUNT(DISTINCT h.holding_id) DESC, p.assortment_id) = 1`.
+  - Executed `deploy-bq.sh --refresh`, `deploy-bq-nokc.sh --refresh`, `scripts/15_inject_dirty_data.py` (preserving all intentional DQ defects), and triggered DQ rescans (`tools/run_phase_l_deploy.sh`). Verified `Merchandising #4` headlessly (`tools/verify_phase_l.py` → `logs/l_verify.json`).
+
 ## Summarized Files (Do NOT Re-Read)
 - `deploy-bq.sh`, `deploy-bq-nokc.sh`, `deploy-full.sh`, `post_deploy.sh`, `clean_up.sh`: Updated with mTLS client-cert disable exports (`GOOGLE_API_USE_CLIENT_CERTIFICATE=false`, `CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false`), `RETAIL_TAXONOMY_DISPLAY_NAME="Retail Demo Sensitivity Taxonomy (alitch)"`, `[Retail] ` dataset descriptions, and 4 required dataset labels (`use-case=retail`, `demo=retail-knowledge-catalog`, `owner=alitch`, `env=demo`).
 - `modules/bigquery-{medallion,reference,dashboards}/main.tf`: Updated dataset IDs, table lists, `[Retail] ` descriptions, and 4 dataset labels.

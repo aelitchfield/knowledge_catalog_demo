@@ -7,7 +7,7 @@ SELECT
   mtd_return,
   qtd_return,
   ytd_return,
-  ROUND(ABS(market_value), 2) AS market_value,
+  ROUND(ABS(current_retail_value), 2) AS current_retail_value,
   ROUND(net_flows, 2) AS net_flows,
   benchmark_return,
   ROUND(daily_return - benchmark_return, 6) AS excess_return,

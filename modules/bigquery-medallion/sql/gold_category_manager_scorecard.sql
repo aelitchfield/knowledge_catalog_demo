@@ -12,7 +12,7 @@ SELECT
   adv.avg_fee_bps,
   COUNT(DISTINCT p.assortment_id) AS managed_assortments,
   ROUND(AVG(p.ytd_return), 4) AS avg_assortment_ytd_return,
-  ROUND(AVG(perf.sharpe_ratio), 4) AS avg_sharpe_ratio,
+  ROUND(AVG(SAFE_DIVIDE(p.current_retail_value - p.inventory_at_cost, p.inventory_at_cost)), 2) AS gmroi,
   ROUND(AVG(perf.alpha), 4) AS avg_alpha,
   COUNT(DISTINCT t.trade_id) AS total_trades,
   ROUND(SUM(t.commission), 2) AS total_commissions_earned
