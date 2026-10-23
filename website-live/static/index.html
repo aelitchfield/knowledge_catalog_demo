@@ -229,9 +229,8 @@
           btn.type = 'button';
           btn.dataset.narrative = key;
           btn.className = 'narrative-tab cross-cloud-tab' + (key === activeNarrative ? ' active' : '');
-          const modeText = _snowflakeLive ? 'Live' : 'Simulated connector — NEXUS reference data';
-          btn.innerHTML = `${nar.label} <span class="nexus-tab-badge">${_snowflakeLive ? 'Live' : 'Simulated connector — NEXUS reference data'}</span>`;
-          btn.title = `${nar.desc} (${modeText})`;
+          btn.textContent = nar.label;
+          btn.title = nar.desc;
           btn.addEventListener('click', () => switchNarrative(key));
           container.appendChild(btn);
           continue;
@@ -251,14 +250,6 @@
       const container = document.getElementById('presetQuestions');
       container.innerHTML = '';
       const nar = NARRATIVES[activeNarrative] || NARRATIVES.merchandising;
-      if (activeNarrative === 'multicloud' && currentAgentMode === 'kc') {
-        const badge = document.createElement('div');
-        badge.className = 'cross-cloud-banner ' + (_snowflakeLive ? 'live' : 'catalog-only');
-        badge.textContent = _snowflakeLive
-          ? '◆ NEXUS · Snowflake (External): Live — cross-cloud Snowflake query connected'
-          : '◆ NEXUS · Snowflake (External): Simulated connector — NEXUS reference data';
-        container.appendChild(badge);
-      }
       for (let i = 0; i < nar.steps.length; i++) {
         const step = nar.steps[i];
         const btn = document.createElement('button');

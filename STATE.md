@@ -1,7 +1,11 @@
 # STATE.md — Retail KC Demo Refactor Memory
 
-## RESUME HERE — 2026-10-23 (Phase L Complete & Verified Across All `retail_*` and `retail_*_nokc` Datasets)
+## RESUME HERE — 2026-10-23 (Phase O1 Complete & Verified on Cloud Run `retail-kc-demo-ui-live-00011-n5f`)
 
+- **Phase O1 Status**: **COMPLETE & VERIFIED**.
+  - Edited [`website-live/static/index.html`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/index.html#L226-L250) to remove both the `.nexus-tab-badge` (`[Simulated connector — NEXUS reference data]`) on the `CROSS-CLOUD` tab and the `.cross-cloud-banner` DOM element (`◆ NEXUS · Snowflake (External): Simulated connector — NEXUS reference data`).
+  - Known-good rollback Cloud Run revision recorded before deploy: `retail-kc-demo-ui-live-00010-877`.
+  - Deployed Cloud Run revision `retail-kc-demo-ui-live-00011-n5f` and verified headlessly (`tools/verify_phase_o1.py` → `logs/o1_verify.json`, `--password-store=basic --use-mock-keychain`) across all 3 agents (`basic`, `scaled`, `kc` with `CROSS-CLOUD` active) that neither string appears in the rendered DOM while `NEXUS · Snowflake (External) (6)` legend, cyan diamonds, and dashed cluster boundary remain intact.
 - **Phase L Status**: **COMPLETE** across all 16 BigQuery datasets (`retail_bronze`, `retail_silver`, `retail_gold`, `retail_reference`, `retail_dashboards`, `retail_staging`, `retail_snapshots`, `retail_audit` and `retail_bronze_nokc`, `retail_silver_nokc`, `retail_gold_nokc`, `retail_reference_nokc`, `retail_dashboards_nokc`, `retail_staging_nokc`, `retail_snapshots_nokc`, `retail_audit_nokc`).
   - `INFORMATION_SCHEMA.COLUMNS` check across all 16 datasets: **0 tables / 0 columns** with old names (`avg_sharpe_ratio`, `total_return_pct`, `unrealized_gain_loss`, `cost_basis`, `market_value`); **22 tables / 44 columns** with new names (`gmroi`, `sell_through_pct`, `markdown_exposure`, `inventory_at_cost`, `current_retail_value`).
   - `gold_assortment_performance` deduplicated to 12 unique assortments (`gmroi` = `2.08–3.85`, `sell_through_pct` = `0.4384–0.8455`); intentional DQ defects re-injected (`scripts/15_inject_dirty_data.py`) and DQ rescans triggered.
