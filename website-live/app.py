@@ -257,6 +257,22 @@ def _extract_glossary_terms(text):
     return list(terms)
 
 
+def _iter_stream_lines(resp):
+    """Yield newline-delimited JSON chunks immediately as HTTP chunks arrive."""
+    buf = b""
+    for chunk in resp.raw.stream(65536, decode_content=True):
+        if not chunk:
+            continue
+        buf += chunk
+        while b"\n" in buf:
+            line, buf = buf.split(b"\n", 1)
+            line = line.strip()
+            if line:
+                yield line.decode("utf-8", errors="replace")
+    if buf.strip():
+        yield buf.strip().decode("utf-8", errors="replace")
+
+
 def _parse_stream_chunk(raw_text, is_cross_cloud=False):
     """Parse a single streamQuery response line into typed events."""
     events = []
@@ -827,10 +843,18 @@ try:
                 continue
 
             start = time.time()
+            t0 = time.perf_counter()
             ws.send(json.dumps({"type": "status", "message": "Connecting to agent..."}))
 
             try:
+                t_sess_start = time.perf_counter()
                 session_id = _get_or_create_session(agent_id, user_id, category=category)
+                session_create_ms = round((time.perf_counter() - t_sess_start) * 1000)
+                elapsed_ms = round((time.perf_counter() - t0) * 1000)
+                logger.info(
+                    "[LATENCY] agent=%s category=%s phase=session_create phase_ms=%d elapsed_ms=%d",
+                    agent_type, category, session_create_ms, elapsed_ms,
+                )
                 if not session_id:
                     ws.send(json.dumps({"type": "error", "message": "Failed to create session"}))
                     continue
@@ -858,25 +882,96 @@ try:
 
                 all_tables = []
                 all_glossary = []
+                phase_timings = [{"phase": "session_create", "phase_ms": session_create_ms, "elapsed_ms": elapsed_ms}]
+                last_phase_t = time.perf_counter()
+                pending_tool_t = {}
+                first_token_ms = None
+                last_token_ms = None
 
-                for line in resp.iter_lines():
-                    if not line:
-                        continue
-                    text = line.decode("utf-8").strip()
-                    if not text:
-                        continue
-
+                for text in _iter_stream_lines(resp):
                     events = _parse_stream_chunk(text, is_cross_cloud=is_cross_cloud)
                     for event in events:
-                        if event["type"] in ("tool_call", "tool_response"):
+                        now = time.perf_counter()
+                        elapsed_ms = round((now - t0) * 1000)
+                        event["elapsed_ms"] = elapsed_ms
+                        etype = event["type"]
+
+                        if etype == "tool_call":
+                            tname = event.get("name", "")
+                            step_ms = round((now - last_phase_t) * 1000)
+                            pending_tool_t[tname] = now
+                            last_phase_t = now
+                            phase_timings.append({
+                                "phase": f"tool_call:{tname}",
+                                "phase_ms": step_ms,
+                                "elapsed_ms": elapsed_ms,
+                            })
+                            logger.info(
+                                "[LATENCY] agent=%s category=%s phase=tool_call:%s phase_ms=%d elapsed_ms=%d",
+                                agent_type, category, tname, step_ms, elapsed_ms,
+                            )
                             all_tables.extend(event.get("tables", []))
                             all_glossary.extend(event.get("glossary_terms", []))
+
+                        elif etype == "tool_response":
+                            tname = event.get("name", "")
+                            t_call = pending_tool_t.pop(tname, last_phase_t)
+                            exec_ms = round((now - t_call) * 1000)
+                            last_phase_t = now
+                            event["tool_exec_ms"] = exec_ms
+                            phase_timings.append({
+                                "phase": f"tool_response:{tname}",
+                                "phase_ms": exec_ms,
+                                "elapsed_ms": elapsed_ms,
+                            })
+                            logger.info(
+                                "[LATENCY] agent=%s category=%s phase=tool_response:%s phase_ms=%d elapsed_ms=%d",
+                                agent_type, category, tname, exec_ms, elapsed_ms,
+                            )
+                            all_tables.extend(event.get("tables", []))
+                            all_glossary.extend(event.get("glossary_terms", []))
+
+                        elif etype == "text_chunk":
+                            if first_token_ms is None:
+                                first_token_ms = elapsed_ms
+                                gen_ms = round((now - last_phase_t) * 1000)
+                                phase_timings.append({
+                                    "phase": "first_token",
+                                    "phase_ms": gen_ms,
+                                    "elapsed_ms": first_token_ms,
+                                })
+                                logger.info(
+                                    "[LATENCY] agent=%s category=%s phase=first_token phase_ms=%d elapsed_ms=%d",
+                                    agent_type, category, gen_ms, first_token_ms,
+                                )
+                            last_token_ms = elapsed_ms
+                            last_phase_t = now
+
                         ws.send(json.dumps(event))
 
+                if last_token_ms is not None:
+                    stream_ms = last_token_ms - (first_token_ms or last_token_ms)
+                    phase_timings.append({
+                        "phase": "last_token",
+                        "phase_ms": stream_ms,
+                        "elapsed_ms": last_token_ms,
+                    })
+                    logger.info(
+                        "[LATENCY] agent=%s category=%s phase=last_token phase_ms=%d elapsed_ms=%d",
+                        agent_type, category, stream_ms, last_token_ms,
+                    )
+
                 latency = time.time() - start
+                total_ms = round((time.perf_counter() - t0) * 1000)
+                logger.info(
+                    "[LATENCY_SUMMARY] agent=%s category=%s total_ms=%d phases=%s",
+                    agent_type, category, total_ms, json.dumps(phase_timings),
+                )
                 ws.send(json.dumps({
                     "type": "done",
                     "latency": round(latency, 1),
+                    "total_ms": total_ms,
+                    "phase_timings": phase_timings,
                     "all_tables": list(set(all_tables)),
                     "all_glossary": list(set(all_glossary)),
                 }))

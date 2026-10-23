@@ -1,7 +1,18 @@
 # STATE.md — Retail KC Demo Refactor Memory
 
-## RESUME HERE — 2026-10-23 (Phase O2 Complete & Verified on Cloud Run `retail-kc-demo-ui-live-00012-wsj`)
+## RESUME HERE — 2026-10-23 (Phase P Complete & Verified on Cloud Run `retail-kc-demo-ui-live-00013-qvw`)
 
+- **Phase P Status**: **COMPLETE & VERIFIED**.
+  - **P1 (Cloud Run cold starts)**: `retail-kc-demo-ui-live` in `us-central1` already had `autoscaling.knative.dev/minScale: '1'` (before: `1`, after: `1`).
+  - **P2 (Per-phase elapsed-ms instrumentation in [`website-live/app.py`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/app.py))**:
+    - Replaced `resp.iter_lines()` (which buffered `<512B` `tool_call` lines in `urllib3`) with unbuffered HTTP chunk line streaming [`_iter_stream_lines(resp)`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/app.py#L260-L273) (`resp.raw.stream(65536, decode_content=True)`), and added `[LATENCY]` / `[LATENCY_SUMMARY]` logging + `phase_timings` telemetry across `session_create`, each `tool_call`, each `tool_response`, `first_token`, and `last_token`.
+    - Measured `Merchandising #4` (`70,578 ms`) and `Cross-Cloud #2` (`45,411 ms`) via [`tools/verify_phase_p.py`](file:///home/aelitchfield/knowledge_catalog_demo/tools/verify_phase_p.py) (`logs/p_verify.json`): actual tool executions take only `0.8–2.4s` each (`10–12%` of total latency); `88–90%` of latency is LLM tool-planning turns (`5–9s` per turn after ~40 KB `lookup_context` payload, compounded when the agent makes multiple sequential `run_sql` calls) plus final answer token generation (`21–23s`, delivered in a single chunk at the end of the turn by `AdkApp.async_stream_query` so `first_token == last_token`).
+  - **P3 (Progressive UI feedback in [`website-live/static/chat.js`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/chat.js) & [`website-live/static/index.html`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/index.html) `?v=10`)**:
+    - Verified tool chips render incrementally at the exact moment each `tool_call` fires (`5.4s → 9.1s → 20.2s...` on Merchandising #4; `9.5s → 14.1s → 21.4s` on Cross-Cloud #2).
+    - Status line progresses across all phases: `"Searching Knowledge Catalog..."` → `"Reading table metadata..."` → `"Querying BigQuery..."` / `"Querying Snowflake..."` → `"Composing answer..."`.
+    - Graph edges draw progressively as each tool touches tables (`0 → 2 → 5 → 6` edges).
+  - **P4 (Agent models)**: All 3 agents (`agent_basic`, `agent_scaled`, `agent_kc`) run `gemini-2.5-flash`.
+  - Deployed Cloud Run revision `retail-kc-demo-ui-live-00013-qvw` (rollback: `retail-kc-demo-ui-live-00012-wsj`).
 - **Phase O2 Status**: **COMPLETE & VERIFIED**.
   - Implemented the **no-agent-redeploy** bidirectional NEXUS scope gate across [`website-live/static/index.html`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/index.html), [`website-live/static/chat.js`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/chat.js), [`website-live/static/visualization.js`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/visualization.js), and [`website-live/app.py`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/app.py).
   - UI passes active `category` (`merchandising` / `customer` / `privacy` / `multicloud`) in the `/ws/chat` payload while rendering only the clean user question in the chat bubble; `app.py` isolates Vertex AI sessions per category (`f"{agent_id}:{user_id}:{cat_key}"`), appends `_INTERNAL_SCOPE_INSTRUCTION` or `_CROSS_CLOUD_SCOPE_INSTRUCTION` server-side for `kc`, and filters extracted tables by tab scope.

@@ -263,12 +263,17 @@ class ChatPanel {
       this._currentAgentMsg._rawText = '';
       this._currentAgentMsg._rendered = document.createElement('div');
       this._currentAgentMsg.appendChild(this._currentAgentMsg._rendered);
+      this._currentAgentMsg._statusHistory = [];
+      this._currentAgentMsg._chipTimeline = [];
+      this._currentAgentMsg._edgeTimeline = [];
+      this._currentAgentMsg._pendingTools = 0;
+      this._currentAgentMsg._sqlToolsCompleted = new Set();
       this._activeContainer().appendChild(this._currentAgentMsg);
     }
     return this._currentAgentMsg;
   }
 
-  _addToolChip(name) {
+  _addToolChip(name, serverElapsedMs) {
     const msg = this._getOrCreateAgentMsg();
     const upper = String(name || '').toUpperCase();
     const chip = document.createElement('span');
@@ -277,7 +282,19 @@ class ChatPanel {
     else if (upper.includes('CONTEXT') || upper.includes('LOOKUP')) chip.className += ' lookup';
     else chip.className += ' sql';
     chip.textContent = upper;
+    const renderedAtMs = Math.round(performance.now());
+    chip.dataset.renderedAtMs = String(renderedAtMs);
+    if (serverElapsedMs !== undefined && serverElapsedMs !== null) {
+      chip.dataset.serverElapsedMs = String(serverElapsedMs);
+    }
     msg._chips.appendChild(chip);
+    if (msg._chipTimeline) {
+      msg._chipTimeline.push({
+        name: upper,
+        rendered_at_ms: renderedAtMs,
+        server_elapsed_ms: serverElapsedMs ?? null,
+      });
+    }
   }
 
   _appendText(text) {
@@ -297,13 +314,25 @@ class ChatPanel {
     if (!msg._status) return;
     const labels = {
       search_entries: 'Searching Knowledge Catalog...',
-      get_context: 'Reading metadata & schema...',
+      lookup_context: 'Reading table metadata...',
+      get_context: 'Reading table metadata...',
       run_sql: 'Querying BigQuery...',
+      query_snowflake: 'Querying Snowflake...',
+      composing: 'Composing answer...',
     };
-    msg._status.innerHTML = `<span class="working-dot"></span> ${labels[toolName] || 'Agent is working...'}`;
+    const statusText = labels[toolName] || 'Agent is working...';
+    msg._status.innerHTML = `<span class="working-dot"></span> ${statusText}`;
+    if (!msg._statusHistory) msg._statusHistory = [];
+    if (msg._statusHistory[msg._statusHistory.length - 1] !== statusText) {
+      msg._statusHistory.push(statusText);
+    }
   }
 
   _hideWorkingStatus() {
+    if (this._composingTimer) {
+      clearTimeout(this._composingTimer);
+      this._composingTimer = null;
+    }
     if (this._currentAgentMsg) {
       this._currentAgentMsg.classList.remove('working');
       if (this._currentAgentMsg._status) {
@@ -494,23 +523,68 @@ class ChatPanel {
         break;
 
       case 'tool_call': {
-        this._addToolChip(event.name);
+        if (this._composingTimer) {
+          clearTimeout(this._composingTimer);
+          this._composingTimer = null;
+        }
+        const msg = this._getOrCreateAgentMsg();
+        msg._pendingTools = (msg._pendingTools || 0) + 1;
+        this._addToolChip(event.name, event.elapsed_ms);
         this._updateWorkingStatus(event.name);
         if (event.name === 'search_entries') {
           this.viz.triggerSearchPulse();
         }
         const scopedTables = this._filterTablesForScope(event.tables);
         if (scopedTables.length > 0) {
-          this.viz.illuminateTables(scopedTables, true);
+          const cap = event.name === 'lookup_context' ? 4 : 6;
+          this.viz.illuminateTables(scopedTables.slice(0, cap), true);
+        }
+        if (msg._edgeTimeline) {
+          msg._edgeTimeline.push({
+            event: `tool_call:${event.name}`,
+            edge_count: this.viz._getCappedEdgeTargets().length,
+            elapsed_ms: event.elapsed_ms ?? null,
+          });
         }
         break;
       }
 
       case 'tool_response': {
+        const msg = this._getOrCreateAgentMsg();
+        msg._pendingTools = Math.max(0, (msg._pendingTools || 1) - 1);
+        if (event.name === 'run_sql' || event.name === 'query_snowflake') {
+          if (msg._sqlToolsCompleted) msg._sqlToolsCompleted.add(event.name);
+        }
         const scopedTables = this._filterTablesForScope(event.tables);
-        if (this.agentMode === 'kc' && scopedTables.length > 0) {
-          const isPrimary = event.name === 'lookup_context' || event.name === 'run_sql' || event.name === 'query_snowflake';
-          this.viz.illuminateTables(scopedTables.slice(0, 8), isPrimary);
+        if (scopedTables.length > 0) {
+          if (this.agentMode === 'kc') {
+            const isPrimary = event.name === 'lookup_context' || event.name === 'run_sql' || event.name === 'query_snowflake';
+            const cap = event.name === 'search_entries' ? 2 : (event.name === 'lookup_context' ? 4 : 6);
+            this.viz.illuminateTables(scopedTables.slice(0, cap), isPrimary);
+          } else {
+            const cap = this.agentMode === 'basic' ? 2 : 5;
+            this.viz.illuminateTables(scopedTables.slice(0, cap), true);
+          }
+        }
+        if (msg._edgeTimeline) {
+          msg._edgeTimeline.push({
+            event: `tool_response:${event.name}`,
+            edge_count: this.viz._getCappedEdgeTargets().length,
+            elapsed_ms: event.elapsed_ms ?? null,
+          });
+        }
+        if (msg._pendingTools === 0 && msg._sqlToolsCompleted && msg._sqlToolsCompleted.size > 0) {
+          const isMulticloudKc = this.agentMode === 'kc' && this.activeCategory === 'multicloud';
+          if (!isMulticloudKc || msg._sqlToolsCompleted.size >= 2) {
+            this._updateWorkingStatus('composing');
+          } else {
+            this._composingTimer = setTimeout(() => {
+              this._composingTimer = null;
+              if (this._currentAgentMsg === msg && msg._pendingTools === 0) {
+                this._updateWorkingStatus('composing');
+              }
+            }, 350);
+          }
         }
         break;
       }
@@ -527,6 +601,9 @@ class ChatPanel {
       case 'done': {
         this._hideTyping();
         this._hideWorkingStatus();
+        if (this._currentAgentMsg && event.phase_timings) {
+          this._currentAgentMsg._phaseTimings = event.phase_timings;
+        }
         const rawText = this._currentAgentMsg?._rawText || '';
         const citedInAnswer = this._filterTablesForScope(
           rawText.match(/\b((?:gold|silver|bronze|ref|nexus)_[a-z0-9_]+)\b/gi) || []
@@ -547,6 +624,13 @@ class ChatPanel {
           } else if (this.viz.activeNodes.length === 0 && scopedAllTables.length > 0) {
             this.viz.illuminateTables(scopedAllTables.slice(0, 5), false);
           }
+        }
+        if (this._currentAgentMsg && this._currentAgentMsg._edgeTimeline) {
+          this._currentAgentMsg._edgeTimeline.push({
+            event: 'done',
+            edge_count: this.viz._getCappedEdgeTargets().length,
+            elapsed_ms: event.total_ms ?? null,
+          });
         }
         this._finalizeResponse();
         this.viz.zoomToActive();
