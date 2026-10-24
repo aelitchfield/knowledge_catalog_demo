@@ -1,8 +1,14 @@
 # STATE.md — Retail KC Demo Refactor Memory
 
-## RESUME HERE — 2026-10-23 (Phase Q1 Complete & Verified on Cloud Run `retail-kc-demo-ui-live-00015-dkx`)
+## RESUME HERE — 2026-10-24 (Phase Q1 Deployed & Verified; Phase Q2 Abandoned & Rolled Back to Q1)
 
-- **Phase Q1 Status (Enable ADK SSE Streaming)**: **COMPLETE & VERIFIED** (waiting for user decision on whether to proceed to Q2).
+- **Q1 COMPLETE and deployed** (SSE streaming, `3.7s` to first token on Cloud Run `retail-kc-demo-ui-live-00015-dkx` and `retail-agent-kc` `8060330902103785472`).
+- **Q2 ABANDONED** — multi-redeploy thrash, rolled back [`agents/agent_kc/agent.py`](file:///home/aelitchfield/knowledge_catalog_demo/agents/agent_kc/agent.py) to Q1 prompt (`075635c`) and redeployed `retail-agent-kc`.
+- **Remaining**: demo-path verification of 4 chips, then `git push`.
+- **Demo click path**: `Basic→Merch#1`, `Scaled→Merch#4`, `KC→Merch#4`, `KC→Cross-Cloud#2`, plus Dataplex glossary `GMROI`.
+
+### Phase Q1 Details
+- **Phase Q1 Status (Enable ADK SSE Streaming)**: **COMPLETE & VERIFIED**.
   - Updated [`agents/agent_kc/agent.py`](file:///home/aelitchfield/knowledge_catalog_demo/agents/agent_kc/agent.py) to default `RunConfig.streaming_mode = StreamingMode.SSE` and redeployed `retail-agent-kc` (`8060330902103785472`) via [`tools/deploy_kc_agent.py`](file:///home/aelitchfield/knowledge_catalog_demo/tools/deploy_kc_agent.py).
   - Updated [`website-live/app.py`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/app.py) (`_parse_stream_chunk` with `sse_mode=True` and `"run_config": {"streaming_mode": "sse"}` for `kc`) so partial token deltas (`partial=True`) stream live to the client while the turn-end aggregated duplicate (`partial=False`) and duplicate `partial=True` `function_call` events are filtered out.
   - Updated [`website-live/static/chat.js`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/chat.js) and [`website-live/static/index.html`](file:///home/aelitchfield/knowledge_catalog_demo/website-live/static/index.html) (`?v=11`) and deployed Cloud Run revision `retail-kc-demo-ui-live-00015-dkx` (rollback: `retail-kc-demo-ui-live-00013-qvw`).
