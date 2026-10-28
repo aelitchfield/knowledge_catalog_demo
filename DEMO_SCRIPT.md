@@ -1,95 +1,98 @@
-# [Retail] Northwind Retail Group — Knowledge Catalog Demo Script
+# [Retail] Northwind Retail Group — Knowledge Catalog Demo Script & Runtime Handoff
 
-## 1. Live Environment & Canonical URLs
+## 1. Runtime State (Not Stored in Git)
 
-| Component | Resource / Canonical URL |
+### Cloud Run Service
+| Property | Value |
 |---|---|
-| **Live Demo UI (Canonical URL)** | `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app` |
-| **Live Demo UI (Regional Alias)** | `https://retail-kc-demo-ui-live-esoohbbsma-uc.a.run.app` |
 | **GCP Project** | `alitch-ca-demo` (`98236392654`) |
-| **Basic Agent (`[Retail] retail-agent-basic`)** | `projects/98236392654/locations/us-central1/reasoningEngines/2946493525224587264` |
-| **Scaled Agent (`[Retail] retail-agent-scaled`)** | `projects/98236392654/locations/us-central1/reasoningEngines/1975967805526245376` |
-| **KC-Guided Agent (`[Retail] retail-agent-kc`)** | `projects/98236392654/locations/us-central1/reasoningEngines/8060330902103785472` |
-| **Business Glossary (`us`)** | `retail-northwind-glossary-us` (15 categories, 84 terms, 165 term relationships, 219 entry links) |
-| **Policy Tag Taxonomy (`us`)** | `Retail Demo Sensitivity Taxonomy (alitch)` (`projects/alitch-ca-demo/locations/us/taxonomies/7913457216278085263`) |
-| **BigQuery Datasets (`US`)** | 10 governed `retail_*` datasets (`128` tables/views) + 8 shadow `retail_*_nokc` datasets (`120` tables/views) |
+| **Service Name** | `retail-kc-demo-ui-live` |
+| **Region** | `us-central1` |
+| **Live Revision** | `retail-kc-demo-ui-live-00015-dkx` (`minScale: 1`, rollback: `retail-kc-demo-ui-live-00013-qvw`) |
+| **Canonical URL** | `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app` |
+| **Regional Alias URL** | `https://retail-kc-demo-ui-live-esoohbbsma-uc.a.run.app` |
 
-### Pre-Demo Health Check
+### Vertex AI Agent Engine (`reasoningEngines` in `us-central1`)
+| Tier | Display Name | ReasoningEngine ID | Full Resource Name |
+|---|---|---|---|
+| **Basic** | `[Retail] retail-agent-basic` | `2946493525224587264` | `projects/98236392654/locations/us-central1/reasoningEngines/2946493525224587264` |
+| **Scaled** | `[Retail] retail-agent-scaled` | `1975967805526245376` | `projects/98236392654/locations/us-central1/reasoningEngines/1975967805526245376` |
+| **KC-Guided** | `[Retail] retail-agent-kc` | `8060330902103785472` | `projects/98236392654/locations/us-central1/reasoningEngines/8060330902103785472` |
+
+### Secret Manager Key Names (Names Only — Never Commit Values)
+- `retail-basic-agent-id` (stores Basic Agent `reasoningEngine` resource ID)
+- `retail-scaled-agent-id` (stores Scaled Agent `reasoningEngine` resource ID)
+- `retail-kc-agent-id` (stores KC-Guided Agent `reasoningEngine` resource ID)
+- `retail-oauth-client-id` (stores OAuth 2.0 Web Client ID for the live Cloud Run UI)
+
+### OAuth 2.0 Client Configuration & Authorized JS Origins
+- **OAuth Client ID Reference**: Stored in Secret Manager key `retail-oauth-client-id` (never committed to git; injected at deploy time by `website-live/deploy.sh` via `gcloud secrets versions access latest --secret=retail-oauth-client-id --project=alitch-ca-demo`).
+- **Authorized JavaScript Origins** (both must be registered on the OAuth 2.0 Web Client in Google Cloud Console → APIs & Services → Credentials):
+  1. `https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`
+  2. `https://retail-kc-demo-ui-live-esoohbbsma-uc.a.run.app`
+
+---
+
+## 2. Demo Click Path
+
+1. **`Basic` → `Customer & Loyalty` → `Loyalty Tiers`**
+   - **What happens:** Basic Agent has 5 curated Gold tables hardcoded in its prompt (`retail_gold_nokc`). On a straightforward single-table question, it queries `gold_customer_360` and returns loyalty tier counts and balances cleanly.
+   - **Talking point:** *"In a narrow prototype with 5 hand-picked Gold tables, a basic prompt works fine."*
+
+2. **`Basic` → `Merchandising` → `Governed Markdown Plan`**
+   - **What happens:** Basic Agent hits its ceiling — it only sees 5 Gold summary tables and has zero access to SKU/store-level inventory positions, markdown risk, data quality rules, or business glossary definitions.
+   - **Talking point:** *"As soon as merchandising asks for a governed markdown plan, the prototype fails because it lacks table coverage and governance context."*
+
+3. **`Scaled` → `Merchandising` → `Markdown Exposure`**
+   - **What happens:** Scaled Agent is given all 128 `_nokc` tables across ORION POS, LUMEN Commerce, and HELIOS ERP with **no** Knowledge Catalog metadata. It burns multiple tool turns probing `INFORMATION_SCHEMA` / SQL across raw tables and cannot verify data quality rules or official glossary formulas (`GMROI`, `MVaR`, `Markdown Exposure`).
+   - **Talking point:** *"Giving an agent all 128 enterprise tables without a semantic catalog causes schema-guessing and blind trust in unvalidated numbers."*
+
+4. **`KC` → `Cross-Cloud` → `Price Gaps`**
+   - **What happens:** KC-Guided Agent uses Dataplex Knowledge Catalog MCP (`search_entries`, `lookup_context`), bridges BigQuery (`gold_assortment_performance`) with NEXUS Snowflake (`COMPETITOR_PRICE_INDEX` via `query_snowflake`), streams tokens live over ADK SSE (`~3.7s` to first visible token), illuminates 6 active graph connections (including cyan cross-cloud NEXUS edges and a floating green glossary pill), and outputs a structured 4-section brief (`Data discovery`, `Finding`, `Governance Context`, `Recommendations`).
+   - **Talking point:** *"Knowledge Catalog turns 128 tables plus cross-cloud Snowflake datasets into a navigable semantic map with governed definitions and lineage."*
+
+5. **`Dataplex` → `Glossary` → `GTIN-13`**
+   - **What happens:** Click the glossary deep-link in the KC response (or open `retail-northwind-glossary-us` in the Dataplex Knowledge Catalog console) to inspect `[Retail] Global Trade Item Number (GTIN-13)`.
+   - **Talking point:** *"Every glossary badge and table link in the UI resolves directly to the live Dataplex entry—showing the HTML business definition, stewardship aspects, linked BigQuery columns, and the 13-digit GS1 data quality rule."*
+
+---
+
+## 3. Rebuild Quirks & Workarounds
+
+1. **BigQuery & Python SDK mTLS Environment Variables**
+   - In workstation/cloud environments where context-aware mTLS client certificates are enabled in gcloud config but no cert is provisioned, `bq` and Python SDK calls fail unless mTLS client certificates are disabled:
+     ```bash
+     export GOOGLE_API_USE_CLIENT_CERTIFICATE=false
+     export CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE=false
+     ```
+   - All top-level deployment scripts export both variables automatically.
+
+2. **`--condition=None` on Project IAM Bindings**
+   - `alitch-ca-demo` has conditional IAM bindings in its project policy. Every non-conditional `gcloud projects add-iam-policy-binding` command must explicitly pass `--condition=None`, otherwise `gcloud` prompts interactively or fails in non-interactive shells.
+
+3. **Data Catalog / Dataplex Policy Tag Taxonomy Display-Name Collision Workaround**
+   - Policy Tag Taxonomy `display_name` values must be unique across the multi-region (`us`). To avoid `409 ALREADY_EXISTS` collisions with residual or parallel taxonomies, `scripts/16_create_policy_tags.py` and `post_deploy.sh` scope the display name via `RETAIL_TAXONOMY_DISPLAY_NAME="Retail Demo Sensitivity Taxonomy - alitch"` (active taxonomy resource: `projects/alitch-ca-demo/locations/us/taxonomies/6328323030724665961`) and lookup existing taxonomies by display name for idempotency.
+
+---
+
+## 4. End-to-End Rebuild Order
+
+Run the deployment scripts in this exact sequence from the repository root (` retail-refactor` branch):
 
 ```bash
-curl -s https://retail-kc-demo-ui-live-98236392654.us-central1.run.app/api/config | python3 -m json.tool | head -n 30
+# 1. Governed BigQuery datasets & 128 medallion/reference/dashboard tables
+bash deploy-bq.sh
+
+# 2. Ungoverned shadow (_nokc) BigQuery datasets & tables for Basic/Scaled agents
+bash deploy-bq-nokc.sh
+
+# 3. Dataplex Knowledge Catalog governance layer (entry types, aspects, glossary,
+#    data products, lineage, DQ rule library, 360 DataScans, dirty data injection, policy tags)
+bash post_deploy.sh
+
+# 4. Vertex AI Agent Engine deployment (basic, scaled, kc) + Secret Manager IDs + IAM bindings
+bash agents/deploy_agents.sh
+
+# 5. Live Cloud Run web UI deployment (reads agent IDs & OAuth Client ID from Secret Manager)
+bash website-live/deploy.sh
 ```
-
-Confirm:
-- `"live_mode": true`
-- `"agents": {"basic": true, "kc": true, "scaled": true}`
-- `len(all_table_names) == 128` (`40` bronze, `40` silver, `20` gold, `28` reference/views/staging/snapshots/audit)
-- `"dataset_map"` maps `staging_ → retail_staging`, `snapshot_ → retail_snapshots`, `audit_ → retail_audit`
-
----
-
-## 2. Narrative Arc (20-Minute Walkthrough)
-
-> **Core Thesis:** *"Every retailer wants AI agents. When an agent only has 5 tables, it looks great in a prototype. When you expose that same agent to 128 tables across POS, E-Commerce, and ERP systems without metadata, it drowns in ambiguity. Google Cloud Knowledge Catalog gives the agent the semantic map, business glossary, lineage, and data quality context to reason accurately at enterprise scale."*
-
-### Act 1 — The Prototype Promise (Tier 1: Baseline, ~4 min)
-1. Open **`https://retail-kc-demo-ui-live-98236392654.us-central1.run.app`** and sign in with Google.
-2. Select the **Basic Agent** tab (`5` curated Gold tables hardcoded in prompt).
-   - Point out the 3D visualization: only 5 bright Gold nodes are illuminated.
-3. Click or ask **Q1 (Tier 1.1)**:
-   > *"What are our top 5 customers by total relationship value?"*
-   - **Result:** Basic Agent queries `retail_gold_nokc.gold_customer_360` in ~7 seconds and returns the top 5 customers (`CUST-00016000`, `CUST-00010000`, etc.) with exact loyalty, BNPL, store card, and VIP balances.
-4. Click or ask **Q2 (Tier 1.2)**:
-   > *"Give me a breakdown of our bnpl_plan assortment by product type and risk rating."*
-   - **Result:** Basic, Scaled, and KC-Guided agents all answer accurately from `gold_bnpl_plan_summary`.
-   - **Takeaway:** *"This is not a model intelligence problem. All three agents use Gemini 2.5 Pro. When the table is obvious, all three succeed."*
-
----
-
-### Act 2 — The Enterprise Scale Problem (Tier 2: Disambiguation, DQ Trust & Governance, ~8 min)
-1. Switch to the **Scaled Agent** tab (`128` `_nokc` table names across ORION POS, LUMEN SFCC, and HELIOS SAP S/4HANA — zero descriptions, zero glossary definitions, zero DQ scans).
-   - Point out the 3D visualization: 128 unlabelled table nodes across Bronze, Silver, Gold, and Reference rings.
-2. Ask **Q6 (Tier 2.1 — Table Disambiguation: Return Fraud vs. Promo Abuse)**:
-   > *"Show me return fraud and promo abuse trends over the past year, including both monthly fraud alert trends and promo abuse risk scoring by customer segment."*
-   - **Basic Agent:** Fails immediately — its 5 Gold tables contain no fraud or promo-abuse data.
-   - **Scaled Agent:** Sees `bronze_fraud_alerts`, `silver_fraud_alerts`, `gold_return_fraud_analytics`, `silver_promo_abuse_cases`, `gold_promo_fraud_scoring` with no descriptions. It burns multiple `INFORMATION_SCHEMA` / `run_sql` calls guessing schemas, queries only one dimension or misses PAIR (`Promo & Return Abuse Incident Report`) and `Restricted` governance context.
-   - **KC-Guided Agent:** Calls `search_entries` + `lookup_context`, discovers both `gold_return_fraud_analytics` (monthly fraud alert trends) and `gold_promo_fraud_scoring` (segment-level promo abuse risk & PAIR filings), queries both, and cites the **PAIR** glossary definition and **Restricted** classification.
-3. Ask **Q8 (Tier 2.3 — Data Quality Trust: Return-Risk Score)**:
-   > *"What's the average Return-Risk score across our bnpl_plan assortment, and should we trust this number?"*
-   - **Basic & Scaled Agents:** Compute the raw numeric average (`~12–78` depending on risk tier) from `gold_bnpl_plan_summary` (or `_nokc` tables) and blindly tell the user to trust it (or admit they have no way to verify data quality).
-   - **KC-Guided Agent:** Computes the average **and** inspects Knowledge Catalog DQ rules and scan results (`vw_dq_scorecard` / `vw_dq_failed_rules` / `Loyalty & Return-Risk Score` glossary rule requiring scores in the `1–100` range), flagging that raw `bronze_bnpl_plans` contains dirty out-of-range scores (`0`, `150`, `999`, `1200`, and `NULL`) filtered during Silver curation.
-4. Ask **Q10 (Tier 2.5 — Regulatory & Working Capital Thresholds)**:
-   > *"Are we meeting our working capital adequacy requirements? What's our buffer above the minimum?"*
-   - **Basic Agent:** Fails — no access to `gold_working_capital_adequacy`.
-   - **Scaled Agent:** Queries `gold_working_capital_adequacy` (`10.0%` CWCR) but has no idea what Northwind's minimum requirement (`4.5%` base + `2.5%` seasonal buffer = `7.0%` fully loaded minimum) is because that threshold lives in the Knowledge Catalog Business Glossary (`[Retail] Core Working Capital Ratio (CWCR)`), not in the SQL table columns.
-   - **KC-Guided Agent:** Calls `search_entries` and `lookup_context` on both `gold_working_capital_adequacy` and the **CWCR** glossary term, calculating the exact **+3.0 percentage point buffer** above the `7.0%` minimum and citing the `Annual Omnichannel Retail Filing` aspect.
-
----
-
-### Act 3 — Cross-Domain Discovery & Lineage (Tier 3: Multi-System Synthesis, ~8 min)
-1. Ask **Q11 (Tier 3.1 — VIP Member Cross-Domain Exposure + Lineage)**:
-   > *"For our VIP loyalty members, what's their total exposure including loyalty_balances, bnpl_plans, and investments, and which upstream source systems feed this data?"*
-   - **Basic Agent:** Can query `gold_customer_360` balances, but has **zero lineage visibility** — it cannot identify that retail POS/BNPL originates in **ORION** (NCR POS on IBM i) and VIP assortment AUM originates in **LUMEN** (Salesforce Commerce Cloud).
-   - **Scaled Agent:** Either queries only `silver_vip_members` (missing ORION POS/BNPL balances) or cannot trace upstream source systems (`ORION` + `LUMEN` → `bronze_*` → `silver_*` → `gold_customer_360`) because `_nokc` has no Dataplex lineage.
-   - **KC-Guided Agent:** Discovers `gold_customer_360` and `gold_vip_member_revenue`, calls `get_lineage` to trace the 2-hop pipeline (`ORION` `bronze_customers`/`bronze_loyalty_accounts`/`bronze_bnpl_plans` + `LUMEN` `bronze_vip_members` → `silver_*` → `gold_customer_360`), and cites Sensitive PII policy tags.
-2. Ask **Q12 (Tier 3.2 — Store Omnichannel Revenue across POS + Loyalty)**:
-   > *"Which stores generate the most revenue when you include both retail POS and loyalty management?"*
-   - **Basic Agent:** Fails — lacks `gold_store_performance`, `gold_promo_margin_impact`, and `vw_store_omnichannel_performance`.
-   - **Scaled Agent:** Queries only `gold_store_performance` (in-store POS only) or guesses joins across raw tables, missing the governed omnichannel view/join with `gold_promo_margin_impact` / `gold_vip_member_revenue`.
-   - **KC-Guided Agent:** Searches Knowledge Catalog, discovers `vw_store_omnichannel_performance` alongside `gold_store_performance` and `gold_promo_margin_impact`, and presents unified store + digital loyalty revenue with full source attribution.
-3. Ask **Q14 (Tier 3.4 — Multi-Table Seasonal Markdown & Delinquency Stress Test)**:
-   > *"If seasonal apparel markdowns and BNPL defaults increased 5%, what would happen to our working capital ratios?"*
-   - **Basic Agent:** Fails — lacks `gold_working_capital_adequacy`, `gold_bnpl_delinquency_analysis`, and `gold_markdown_risk_var`.
-   - **Scaled Agent:** Overwhelmed by multi-table synthesis across 3 source domains (HELIOS `gold_working_capital_adequacy`, ORION `gold_bnpl_delinquency_analysis`, LUMEN `gold_markdown_risk_var`) and lacks risk-weight/loss-absorption definitions.
-   - **KC-Guided Agent:** Searches across all three domains, retrieves glossary formulas (`CWCR`, `RAIA`, `MVaR`, `BNPL Bad-Debt Write-Off`), queries all three Gold tables, and computes the post-shock working capital ratio impact.
-
----
-
-## 3. What to Highlight in the UI After Every KC Agent Response
-
-1. **Tool Call Chips (`search_entries`, `lookup_context`, `get_lineage`, `run_sql`)**:
-   - Show that the KC agent **searches semantically and reads catalog context before writing SQL**, resulting in fewer wasted SQL retries than the Scaled agent.
-2. **Clickable Entity & Glossary Links**:
-   - Every table name (`gold_customer_360`, `gold_working_capital_adequacy`, etc.) and glossary badge (`CWCR`, `MVaR`, `PAIR`, `SIV`, `GTIN-13`) in the chat response links directly to the live **Dataplex Knowledge Catalog entry** in `alitch-ca-demo`.
-3. **3D Point-Cloud Animation**:
-   - Watch the amber/blue discovery pulses connect the Business Glossary and Lineage rings to the exact Gold/Silver tables used in the query.

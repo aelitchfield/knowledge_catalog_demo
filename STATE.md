@@ -213,3 +213,21 @@
 - `agents/agent_{basic,scaled,kc}/agent.py` & `agents/deploy_agents.sh`: Fixed `BigQueryAgentAnalyticsPlugin` import, updated `_BASE_SUFFIXES` and `_OTHER_TABLES` in `agent_scaled` (128 tables), set `[Retail] ` display names and `retail-*-agent-id` secrets.
 - `website-live/app.py`, `website-live/deploy.sh`, `website-live/static/index.html`, `website-live/static/static-responses.json`: Updated to Northwind Retail Group branding, retail narratives, and `[Retail] ` glossary link matching.
 - `demo/demo_questions.md`, `demo/demo_script.md`, `eval/metrics.py`, `eval/run_eval.py`, `eval/test_cases.yaml`: Refactored to retail scenarios and metrics.
+
+
+## FINAL STATE — Handoff Before Teardown (2026-10-28)
+
+- **Phases Complete**:
+  - **P0–P6**: Baseline retail refactor, 18 BigQuery datasets (`10` governed `retail_*` + `8` `retail_*_nokc` shadow), 128 tables/views, 9 Dataplex governance pillars, 3 Vertex AI Agent Engine instances (`basic=2946493525224587264`, `scaled=1975967805526245376`, `kc=8060330902103785472`), and Cloud Run UI (`retail-kc-demo-ui-live`).
+  - **Phases A–E & F1–F5**: Fixed Agent Engine `:streamQuery` `class_method` (`async_create_session` / `async_stream_query`), retail question categories & tier chips, purged residual FSI strings/metrics from SQL data, and cleaned up NEXUS cross-cloud graph rendering.
+  - **Phases G1-F, I-A, I-B, I-C**: Removed static lineage mesh, enforced active-path edges only, added KC concentric orbital rings + touched-node labels, and verified all 40 preset chips headlessly (`0 BROKEN`).
+  - **Phases K1, K2, L**: Deterministic `query_snowflake` NEXUS connector + 4-section KC response template, 4–6 active graph edges with floating green glossary edge pills, targeted column rename (`gmroi`, `sell_through_pct`, `markdown_exposure`, `inventory_at_cost`, `current_retail_value`), realistic GMROI (`2.08–3.85`), and deduplicated `gold_assortment_performance`.
+  - **Phases O1, O2, P, Q1**: Removed simulated-connector UI labels, gated NEXUS access to the Cross-Cloud tab, added per-phase latency telemetry + progressive UI status updates, and enabled ADK SSE token streaming (`StreamingMode.SSE`) on `retail-agent-kc` (`~3.7s` to first token on live revision `retail-kc-demo-ui-live-00015-dkx`).
+- **Phase Q2 Abandoned**:
+  - Multi-redeploy prompt compression experiment (`Q2`) caused regression/thrash; abandoned and rolled `agents/agent_kc/agent.py` back to the verified `Q1` prompt (`075635c`) and redeployed `retail-agent-kc` (`8060330902103785472`).
+- **Rebuild Sequence**:
+  1. `bash deploy-bq.sh`
+  2. `bash deploy-bq-nokc.sh`
+  3. `bash post_deploy.sh`
+  4. `bash agents/deploy_agents.sh`
+  5. `bash website-live/deploy.sh`
